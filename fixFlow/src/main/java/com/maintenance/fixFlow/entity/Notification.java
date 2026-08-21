@@ -4,31 +4,31 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.springframework.data.annotation.CreatedDate;
+
+import java.time.LocalDateTime;
 
 @Setter
 @Getter
 @NoArgsConstructor
 @Entity
-public class User {
-    @Id
+public class Notification {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
     private Long id;
 
     @Column(nullable = false)
-    private String name;
-
-    @Column(nullable = false,
-            unique = true)
-    private String email;
+    private String message;
 
     @Column(nullable = false)
-    private String phone;
+    private NotificationType type;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Role role;
+    private boolean read;
+
+    @CreatedDate
+    private LocalDateTime createdAt;
 
     @ManyToOne
-    @JoinColumn(name = "unit_id")
-    private Unit unit;
+    @JoinColumn(name = "user_id",nullable = false)
+    private User user;
 }

@@ -1,5 +1,6 @@
 package com.maintenance.fixFlow.entity;
 
+
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -9,33 +10,29 @@ import org.springframework.data.annotation.LastModifiedDate;
 
 import java.time.LocalDateTime;
 
-@Setter
 @Getter
 @NoArgsConstructor
-@Table(name = "maintenance_requests")
+@Setter
+@Table(name = "attachments")
 @Entity
-public class MaintenanceRequest {
+public class Attachment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
     private Long id;
 
     @Column(nullable = false)
-    private String title;
+    private String name;
 
     @Column(nullable = false)
+    private String contentType;
+
+    @Column(nullable = false)
+    private Long size;
+
     private String description;
 
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private MaintenanceStatus status;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private MaintenancePriority priority;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private MaintenanceCategory category;
+    private String storagePath;
 
     @CreatedDate
     private LocalDateTime createdAt;
@@ -44,12 +41,6 @@ public class MaintenanceRequest {
     private LocalDateTime updatedAt;
 
     @ManyToOne
-    @JoinColumn(name = "reported_by_id", nullable = false)
-    private User reportedBy;
-
-    @ManyToOne
-    @JoinColumn(name = "unit_id", nullable = false)
-    private Unit unit;
-
-    private LocalDateTime completedAt;
+    @JoinColumn(name = "maintenance_request_id", nullable = false)
+    private MaintenanceRequest maintenanceRequest;
 }

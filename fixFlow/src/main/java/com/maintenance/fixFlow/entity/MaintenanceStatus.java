@@ -6,6 +6,6 @@ public enum MaintenanceStatus {
     ASSIGNED,
     IN_PROGRESS,
     COMPLETED,
-    CLOSED,
-    CANCELLED
+    CANCELLED,
+    REJECTED
 }
