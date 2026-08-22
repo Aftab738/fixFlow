@@ -12,6 +12,15 @@ import java.time.LocalDateTime;
 @Setter
 @Getter
 @NoArgsConstructor
+@Table(
+        name = "units",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_unit_property",
+                        columnNames = {"property_id", "unit_number"}
+                )
+        }
+)
 @Entity
 public class Unit {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
