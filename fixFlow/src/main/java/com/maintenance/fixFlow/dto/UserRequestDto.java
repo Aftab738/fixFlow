@@ -15,21 +15,21 @@ import lombok.Setter;
 @NoArgsConstructor
 public class UserRequestDto {
 
-    @NotBlank
+    @NotBlank(message = "Enter your name")
     @Size(min=3,max = 50)
     private String name;
 
-    @NotBlank
-    @Email
+    @NotBlank(message = "Enter an Email")
+    @Email(message = "Invalid Email")
     private String email;
 
-    @NotBlank
-    @Size
+    @NotBlank(message = "Enter Phone no")
+    @Size(min = 10, max = 15, message = "Phone number must be between 10 and 15 digits")
     private String phone;
 
-    @NotNull
+    @NotNull(message = "Enter your role")
     private Role role;
 
-    @NotNull
+    @NotNull(message = "Enter your UnitId")
     private Long unitId;
 }
