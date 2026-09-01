@@ -1,9 +1,13 @@
 package com.maintenance.fixFlow.service;
 
+import com.maintenance.fixFlow.dto.PropertyRequestDto;
+import com.maintenance.fixFlow.dto.PropertyResponseDto;
 import com.maintenance.fixFlow.entity.Property;
+import com.maintenance.fixFlow.mapper.PropertyMapper;
 import com.maintenance.fixFlow.repository.PropertyRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,28 +20,41 @@ public class PropertyService {
         this.propertyRepository=propertyRepository;
     }
 
-    public Property createProperty(Property property){
-        return propertyRepository.save(property);
+    public PropertyResponseDto createProperty(PropertyRequestDto propertyRequestDto){
+        Property property= PropertyMapper.toEntity(propertyRequestDto);
+        return PropertyMapper.toResponseDto(propertyRepository.save(property));
     }
 
-    public Property getPropertyById(Long id){
-        return propertyRepository.findById(id).orElse(null);
+    public PropertyResponseDto getPropertyById(Long id) {
+        Optional<Property> property =
+                propertyRepository.findById(id);
+        if (property.isPresent()) {
+            return PropertyMapper.toResponseDto(property.get());
+        }
+        return null;
     }
 
-    public List<Property> getAllProperties(){
-        return propertyRepository.findAll();
+    public List<PropertyResponseDto> getAllProperties(){
+        List<Property> propertyList= propertyRepository.findAll();
+        List<PropertyResponseDto> result=new ArrayList<>();
+
+        for(Property p:propertyList){
+            result.add(PropertyMapper.toResponseDto(p));
+        }
+        return result;
     }
 
-    public Property updateProperty(Property prop,Long id){
+    public PropertyResponseDto updateProperty(PropertyRequestDto dto,Long id){
         Optional<Property> property=propertyRepository.findById(id);
 
         if(property.isPresent()){
             Property p=property.get();
 
-            p.setName(prop.getName());
-            p.setAddress(prop.getAddress());
+            p.setName(dto.getName());
+            p.setAddress(dto.getAddress());
 
-            return propertyRepository.save(p);
+            Property savedProperty= propertyRepository.save(p);
+            return PropertyMapper.toResponseDto(savedProperty);
 
         }
         return null;

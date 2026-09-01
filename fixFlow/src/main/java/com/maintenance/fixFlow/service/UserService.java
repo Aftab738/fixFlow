@@ -1,8 +1,14 @@
 package com.maintenance.fixFlow.service;
+import com.maintenance.fixFlow.dto.UserRequestDto;
+import com.maintenance.fixFlow.dto.UserResponseDto;
+import com.maintenance.fixFlow.entity.Unit;
 import com.maintenance.fixFlow.entity.User;
+import com.maintenance.fixFlow.mapper.UserMapper;
+import com.maintenance.fixFlow.repository.UnitRepository;
 import com.maintenance.fixFlow.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -10,43 +16,69 @@ import java.util.Optional;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final UnitRepository unitRepository;
 
-    public UserService(UserRepository userRepository){
+    public UserService(UserRepository userRepository, UnitRepository unitRepository){
         this.userRepository=userRepository;
+        this.unitRepository = unitRepository;
     }
 
-    public User createUser(User user) {
-        return userRepository.save(user);
+    public UserResponseDto createUser(UserRequestDto dto) {
+        Unit unit = unitRepository.findById(dto.getUnitId())
+                .orElse(null);
+
+        User user = UserMapper.toEntity(dto, unit);
+        User savedUser = userRepository.save(user);
+
+        return UserMapper.toResponseDto(savedUser);
     }
 
-    public User getUserById(Long id){
+    public UserResponseDto getUserById(Long id){
         Optional<User> user=userRepository.findById(id);
-        return user.orElse(null);
+        if(user.isPresent()){
+            return UserMapper.toResponseDto(user.get());
+        }
+        return null;
     }
 
-    public User getUserByEmail(String email){
+    public UserResponseDto getUserByEmail(String email){
         Optional<User> user=userRepository.findByEmail(email);
-        return user.orElse(null);
+        if(user.isPresent()){
+            return UserMapper.toResponseDto(user.get());
+        }
+        return null;
     }
 
-    public List<User> getAllUsers(){
-        return userRepository.findAll();
+    public List<UserResponseDto> getAllUsers() {
+
+        List<User> users = userRepository.findAll();
+        List<UserResponseDto> result = new ArrayList<>();
+
+        for (User user : users) {
+            result.add(UserMapper.toResponseDto(user));
+        }
+
+        return result;
     }
 
-    public User updateUser(User user,Long id) {
+    public UserResponseDto updateUser(UserRequestDto dto, Long id) {
         Optional<User> us = userRepository.findById(id);
-
         if (us.isPresent()) {
 
-            User user1 = us.get();
+            User user = us.get();
 
-            user1.setName(user.getName());
-            user1.setUnit(user.getUnit());
-            user1.setRole(user.getRole());
-            user1.setPhone(user.getPhone());
-            user1.setEmail(user.getEmail());
+            Unit unit = unitRepository.findById(dto.getUnitId())
+                    .orElse(null);
 
-            return userRepository.save(user1);
+            user.setName(dto.getName());
+            user.setUnit(unit);
+            user.setRole(dto.getRole());
+            user.setPhone(dto.getPhone());
+            user.setEmail(dto.getEmail());
+
+            User savedUser = userRepository.save(user);
+
+            return UserMapper.toResponseDto(savedUser);
         }
 
         return null;
