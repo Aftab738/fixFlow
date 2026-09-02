@@ -1,9 +1,17 @@
 package com.maintenance.fixFlow.service;
 
+import com.maintenance.fixFlow.dto.WorkUpdateRequestDto;
+import com.maintenance.fixFlow.dto.WorkUpdateResponseDto;
+import com.maintenance.fixFlow.entity.MaintenanceRequest;
+import com.maintenance.fixFlow.entity.User;
 import com.maintenance.fixFlow.entity.WorkUpdate;
+import com.maintenance.fixFlow.mapper.WorkUpdateMapper;
+import com.maintenance.fixFlow.repository.MaintenanceRequestRepository;
+import com.maintenance.fixFlow.repository.UserRepository;
 import com.maintenance.fixFlow.repository.WorkUpdateRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -11,37 +19,103 @@ import java.util.Optional;
 public class WorkUpdateService {
 
     private final WorkUpdateRepository workUpdateRepository;
+    private final MaintenanceRequestRepository maintenanceRequestRepository;
+    private final UserRepository userRepository;
 
-    public WorkUpdateService(WorkUpdateRepository workUpdateRepository) {
+    public WorkUpdateService(
+            WorkUpdateRepository workUpdateRepository,
+            MaintenanceRequestRepository maintenanceRequestRepository,
+            UserRepository userRepository) {
+
         this.workUpdateRepository = workUpdateRepository;
+        this.maintenanceRequestRepository = maintenanceRequestRepository;
+        this.userRepository = userRepository;
     }
 
-    public WorkUpdate createWorkUpdate(WorkUpdate workUpdate) {
-        return workUpdateRepository.save(workUpdate);
+    public WorkUpdateResponseDto createWorkUpdate(
+            WorkUpdateRequestDto dto) {
+
+        MaintenanceRequest maintenanceRequest =
+                maintenanceRequestRepository
+                        .findById(dto.getMaintenanceRequestId())
+                        .orElse(null);
+
+        User vendor =
+                userRepository
+                        .findById(dto.getVendorId())
+                        .orElse(null);
+
+        WorkUpdate workUpdate =
+                WorkUpdateMapper.toEntity(
+                        dto,
+                        maintenanceRequest,
+                        vendor);
+
+        WorkUpdate savedWorkUpdate =
+                workUpdateRepository.save(workUpdate);
+
+        return WorkUpdateMapper.toResponseDto(savedWorkUpdate);
     }
 
-    public WorkUpdate getWorkUpdateById(Long id) {
-        return workUpdateRepository.findById(id).orElse(null);
+    public WorkUpdateResponseDto getWorkUpdateById(Long id) {
+
+        Optional<WorkUpdate> workUpdate =
+                workUpdateRepository.findById(id);
+
+        if (workUpdate.isPresent()) {
+            return WorkUpdateMapper.toResponseDto(
+                    workUpdate.get());
+        }
+
+        return null;
     }
 
-    public List<WorkUpdate> getAllWorkUpdates() {
-        return workUpdateRepository.findAll();
+    public List<WorkUpdateResponseDto> getAllWorkUpdates() {
+
+        List<WorkUpdate> list =
+                workUpdateRepository.findAll();
+
+        List<WorkUpdateResponseDto> res =
+                new ArrayList<>();
+
+        for (WorkUpdate workUpdate : list) {
+            res.add(WorkUpdateMapper.toResponseDto(workUpdate));
+        }
+
+        return res;
     }
 
-    public WorkUpdate updateWorkUpdate(WorkUpdate workUpdate, Long id) {
+    public WorkUpdateResponseDto updateWorkUpdate(
+            WorkUpdateRequestDto dto,
+            Long id) {
 
         Optional<WorkUpdate> existingWorkUpdate =
                 workUpdateRepository.findById(id);
 
         if (existingWorkUpdate.isPresent()) {
 
-            WorkUpdate w = existingWorkUpdate.get();
+            WorkUpdate workUpdate =
+                    existingWorkUpdate.get();
 
-            w.setMessage(workUpdate.getMessage());
-            w.setMaintenanceRequest(workUpdate.getMaintenanceRequest());
-            w.setVendor(workUpdate.getVendor());
+            MaintenanceRequest maintenanceRequest =
+                    maintenanceRequestRepository
+                            .findById(dto.getMaintenanceRequestId())
+                            .orElse(null);
 
-            return workUpdateRepository.save(w);
+            User vendor =
+                    userRepository
+                            .findById(dto.getVendorId())
+                            .orElse(null);
+
+            workUpdate.setMessage(dto.getMessage());
+            workUpdate.setMaintenanceRequest(maintenanceRequest);
+            workUpdate.setVendor(vendor);
+
+            WorkUpdate savedWorkUpdate =
+                    workUpdateRepository.save(workUpdate);
+
+            return WorkUpdateMapper.toResponseDto(
+                    savedWorkUpdate);
         }
 
         return null;
@@ -49,26 +123,47 @@ public class WorkUpdateService {
 
     public String deleteWorkUpdate(Long id) {
 
-        Optional<WorkUpdate> existingWorkUpdate =
+        Optional<WorkUpdate> workUpdate =
                 workUpdateRepository.findById(id);
 
-        if (existingWorkUpdate.isPresent()) {
-            workUpdateRepository.deleteById(id);
+        if (workUpdate.isPresent()) {
+            workUpdateRepository.delete(workUpdate.get());
             return "Work update deleted";
         }
 
         return "Work update not found";
     }
 
-    public List<WorkUpdate> getWorkUpdatesByMaintenanceRequestId(
+    public List<WorkUpdateResponseDto> getWorkUpdatesByMaintenanceRequestId(
             Long maintenanceRequestId) {
 
-        return workUpdateRepository
-                .findByMaintenanceRequestId(maintenanceRequestId);
+        List<WorkUpdate> list =
+                workUpdateRepository
+                        .findByMaintenanceRequestId(maintenanceRequestId);
+
+        List<WorkUpdateResponseDto> res =
+                new ArrayList<>();
+
+        for (WorkUpdate workUpdate : list) {
+            res.add(WorkUpdateMapper.toResponseDto(workUpdate));
+        }
+
+        return res;
     }
 
-    public List<WorkUpdate> getWorkUpdatesByVendorId(Long vendorId) {
+    public List<WorkUpdateResponseDto> getWorkUpdatesByVendorId(
+            Long vendorId) {
 
-        return workUpdateRepository.findByVendorId(vendorId);
+        List<WorkUpdate> list =
+                workUpdateRepository.findByVendorId(vendorId);
+
+        List<WorkUpdateResponseDto> res =
+                new ArrayList<>();
+
+        for (WorkUpdate workUpdate : list) {
+            res.add(WorkUpdateMapper.toResponseDto(workUpdate));
+        }
+
+        return res;
     }
 }
