@@ -4,6 +4,7 @@ import com.maintenance.fixFlow.dto.AttachmentRequestDto;
 import com.maintenance.fixFlow.dto.AttachmentResponseDto;
 import com.maintenance.fixFlow.entity.Attachment;
 import com.maintenance.fixFlow.entity.MaintenanceRequest;
+import com.maintenance.fixFlow.exception.ResourceNotFoundException;
 import com.maintenance.fixFlow.mapper.AttachmentMapper;
 import com.maintenance.fixFlow.repository.AttachmentRepository;
 import com.maintenance.fixFlow.repository.MaintenanceRequestRepository;
@@ -33,7 +34,9 @@ public class AttachmentService {
         MaintenanceRequest maintenanceRequest =
                 maintenanceRequestRepository
                         .findById(dto.getMaintenanceRequestId())
-                        .orElse(null);
+                        .orElseThrow(()-> new ResourceNotFoundException(
+                                "Maintenance request not found with id:"+dto.getMaintenanceRequestId())
+                        );
 
         Attachment attachment =
                 AttachmentMapper.toEntity(dto, maintenanceRequest);
@@ -46,15 +49,11 @@ public class AttachmentService {
 
     public AttachmentResponseDto getAttachmentById(Long id) {
 
-        Optional<Attachment> attachment =
-                attachmentRepository.findById(id);
+        Attachment attachment =
+                attachmentRepository.findById(id)
+                        .orElseThrow(()->new ResourceNotFoundException("Attachment not found with id:"+id));
 
-        if (attachment.isPresent()) {
-            return AttachmentMapper.toResponseDto(
-                    attachment.get());
-        }
-
-        return null;
+        return AttachmentMapper.toResponseDto(attachment);
     }
 
     public List<AttachmentResponseDto> getAllAttachments() {
@@ -76,18 +75,18 @@ public class AttachmentService {
             AttachmentRequestDto dto,
             Long id) {
 
-        Optional<Attachment> existingAttachment =
-                attachmentRepository.findById(id);
 
-        if (existingAttachment.isPresent()) {
+        Attachment attachment =
+                attachmentRepository.findById(id)
+                        .orElseThrow(()->new ResourceNotFoundException("Attachment not found with id:"+id));
 
-            Attachment attachment =
-                    existingAttachment.get();
 
             MaintenanceRequest maintenanceRequest =
                     maintenanceRequestRepository
                             .findById(dto.getMaintenanceRequestId())
-                            .orElse(null);
+                            .orElseThrow(()-> new ResourceNotFoundException(
+                                    "Maintenance request not found with id:"+dto.getMaintenanceRequestId())
+                            );
 
             attachment.setName(dto.getName());
             attachment.setContentType(dto.getContentType());
@@ -100,22 +99,19 @@ public class AttachmentService {
 
             return AttachmentMapper.toResponseDto(
                     savedAttachment);
-        }
 
-        return null;
     }
 
     public String deleteAttachment(Long id) {
 
-        Optional<Attachment> attachment =
-                attachmentRepository.findById(id);
+        Attachment attachment =
+                attachmentRepository.findById(id)
+                        .orElseThrow(()->new ResourceNotFoundException("Attachment not found with id:"+id));
 
-        if (attachment.isPresent()) {
-            attachmentRepository.delete(attachment.get());
-            return "Attachment Deleted";
-        }
 
-        return "Attachment not found";
+       attachmentRepository.delete(attachment);
+
+        return "Attachment Deleted";
     }
 
     public List<AttachmentResponseDto> getAttachmentsByMaintenanceRequestId(

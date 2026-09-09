@@ -4,6 +4,7 @@ import com.maintenance.fixFlow.dto.UnitRequestDto;
 import com.maintenance.fixFlow.dto.UnitResponseDto;
 import com.maintenance.fixFlow.entity.Property;
 import com.maintenance.fixFlow.entity.Unit;
+import com.maintenance.fixFlow.exception.ResourceNotFoundException;
 import com.maintenance.fixFlow.mapper.UnitMapper;
 import com.maintenance.fixFlow.repository.PropertyRepository;
 import com.maintenance.fixFlow.repository.UnitRepository;
@@ -27,7 +28,7 @@ public class UnitService {
 
     public UnitResponseDto createUnit(UnitRequestDto dto) {
         Property property = propertyRepository.findById(dto.getPropertyId())
-                .orElse(null);
+                .orElseThrow(()->new ResourceNotFoundException("Property not found with id:"+dto.getPropertyId()));
 
         Unit unit = UnitMapper.toEntity(dto, property);
         Unit savedUnit = unitRepository.save(unit);
@@ -36,12 +37,10 @@ public class UnitService {
     }
 
     public UnitResponseDto getUnitById(Long id) {
-        Optional<Unit> unit = unitRepository.findById(id);
-        if (unit.isPresent()) {
-            return UnitMapper.toResponseDto(unit.get());
-        }
+        Unit unit = unitRepository.findById(id)
+                .orElseThrow(()->new ResourceNotFoundException("Unit not found with id:"+id));
 
-        return null;
+        return UnitMapper.toResponseDto(unit);
     }
 
     public List<UnitResponseDto> getAllUnits() {
@@ -56,12 +55,12 @@ public class UnitService {
     }
 
     public UnitResponseDto updateUnit(UnitRequestDto dto, Long id) {
-        Optional<Unit> existingUnit = unitRepository.findById(id);
-        if (existingUnit.isPresent()) {
-            Unit unit = existingUnit.get();
+        Unit unit = unitRepository.findById(id)
+                .orElseThrow(()->new ResourceNotFoundException("Unit not found with id:"+id));
+
 
             Property property = propertyRepository.findById(dto.getPropertyId())
-                    .orElse(null);
+                    .orElseThrow(()->new ResourceNotFoundException("Property not found with id:"+dto.getPropertyId()));
             unit.setFloor(dto.getFloor());
             unit.setUnitNumber(dto.getUnitNumber());
             unit.setProperty(property);
@@ -69,18 +68,14 @@ public class UnitService {
             Unit savedUnit = unitRepository.save(unit);
 
             return UnitMapper.toResponseDto(savedUnit);
-        }
-
-        return null;
     }
 
     public String deleteUnit(Long id) {
-        Optional<Unit> unit = unitRepository.findById(id);
-        if (unit.isPresent()) {
-            unitRepository.delete(unit.get());
-            return "Unit removed";
-        }
+        Unit unit = unitRepository.findById(id)
+                .orElseThrow(()->new ResourceNotFoundException("Unit not found with id:"+id));
 
-        return "Unit not found";
+        unitRepository.delete(unit);
+
+        return "Unit Deleted";
     }
 }

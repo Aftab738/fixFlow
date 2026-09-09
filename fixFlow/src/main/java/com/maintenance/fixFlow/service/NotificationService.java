@@ -5,6 +5,7 @@ import com.maintenance.fixFlow.dto.NotificationResponseDto;
 import com.maintenance.fixFlow.entity.Notification;
 import com.maintenance.fixFlow.entity.NotificationType;
 import com.maintenance.fixFlow.entity.User;
+import com.maintenance.fixFlow.exception.ResourceNotFoundException;
 import com.maintenance.fixFlow.mapper.NotificationMapper;
 import com.maintenance.fixFlow.repository.NotificationRepository;
 import com.maintenance.fixFlow.repository.UserRepository;
@@ -12,7 +13,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class NotificationService {
@@ -32,7 +32,10 @@ public class NotificationService {
             NotificationRequestDto dto) {
 
         User user = userRepository.findById(dto.getUserId())
-                .orElse(null);
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "User not found with id: " + dto.getUserId()
+                        ));
 
         Notification notification =
                 NotificationMapper.toEntity(dto, user);
@@ -45,15 +48,14 @@ public class NotificationService {
 
     public NotificationResponseDto getNotificationById(Long id) {
 
-        Optional<Notification> notification =
-                notificationRepository.findById(id);
+        Notification notification =
+                notificationRepository.findById(id)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Notification not found with id: " + id
+                                ));
 
-        if (notification.isPresent()) {
-            return NotificationMapper.toResponseDto(
-                    notification.get());
-        }
-
-        return null;
+        return NotificationMapper.toResponseDto(notification);
     }
 
     public List<NotificationResponseDto> getAllNotifications() {
@@ -75,43 +77,42 @@ public class NotificationService {
             NotificationRequestDto dto,
             Long id) {
 
-        Optional<Notification> existingNotification =
-                notificationRepository.findById(id);
+        Notification notification =
+                notificationRepository.findById(id)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Notification not found with id: " + id
+                                ));
 
-        if (existingNotification.isPresent()) {
+        User user = userRepository.findById(dto.getUserId())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "User not found with id: " + dto.getUserId()
+                        ));
 
-            Notification notification =
-                    existingNotification.get();
+        notification.setMessage(dto.getMessage());
+        notification.setType(dto.getType());
+        notification.setRead(dto.isRead());
+        notification.setUser(user);
 
-            User user = userRepository.findById(dto.getUserId())
-                    .orElse(null);
+        Notification savedNotification =
+                notificationRepository.save(notification);
 
-            notification.setMessage(dto.getMessage());
-            notification.setType(dto.getType());
-            notification.setRead(dto.isRead());
-            notification.setUser(user);
-
-            Notification savedNotification =
-                    notificationRepository.save(notification);
-
-            return NotificationMapper.toResponseDto(
-                    savedNotification);
-        }
-
-        return null;
+        return NotificationMapper.toResponseDto(savedNotification);
     }
 
     public String deleteNotification(Long id) {
 
-        Optional<Notification> notification =
-                notificationRepository.findById(id);
+        Notification notification =
+                notificationRepository.findById(id)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Notification not found with id: " + id
+                                ));
 
-        if (notification.isPresent()) {
-            notificationRepository.delete(notification.get());
-            return "Notification Deleted";
-        }
+        notificationRepository.delete(notification);
 
-        return "Notification not found";
+        return "Notification Deleted";
     }
 
     public List<NotificationResponseDto> getNotificationsByUserId(

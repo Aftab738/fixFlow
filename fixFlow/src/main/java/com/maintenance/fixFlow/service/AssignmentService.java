@@ -6,6 +6,7 @@ import com.maintenance.fixFlow.entity.Assignment;
 import com.maintenance.fixFlow.entity.AssignmentStatus;
 import com.maintenance.fixFlow.entity.MaintenanceRequest;
 import com.maintenance.fixFlow.entity.User;
+import com.maintenance.fixFlow.exception.ResourceNotFoundException;
 import com.maintenance.fixFlow.mapper.AssignmentMapper;
 import com.maintenance.fixFlow.repository.AssignmentRepository;
 import com.maintenance.fixFlow.repository.MaintenanceRequestRepository;
@@ -14,7 +15,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class AssignmentService {
@@ -39,12 +39,20 @@ public class AssignmentService {
         MaintenanceRequest maintenanceRequest =
                 maintenanceRequestRepository
                         .findById(dto.getMaintenanceRequestId())
-                        .orElse(null);
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Maintenance request not found with id: "
+                                                + dto.getMaintenanceRequestId()
+                                ));
 
         User vendor =
                 userRepository
                         .findById(dto.getVendorId())
-                        .orElse(null);
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "User not found with id: "
+                                                + dto.getVendorId()
+                                ));
 
         Assignment assignment =
                 AssignmentMapper.toEntity(
@@ -60,15 +68,14 @@ public class AssignmentService {
 
     public AssignmentResponseDto getAssignmentById(Long id) {
 
-        Optional<Assignment> assignment =
-                assignmentRepository.findById(id);
+        Assignment assignment =
+                assignmentRepository.findById(id)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Assignment not found with id: " + id
+                                ));
 
-        if (assignment.isPresent()) {
-            return AssignmentMapper.toResponseDto(
-                    assignment.get());
-        }
-
-        return null;
+        return AssignmentMapper.toResponseDto(assignment);
     }
 
     public List<AssignmentResponseDto> getAllAssignments() {
@@ -90,52 +97,56 @@ public class AssignmentService {
             AssignmentRequestDto dto,
             Long id) {
 
-        Optional<Assignment> existingAssignment =
-                assignmentRepository.findById(id);
+        Assignment assignment =
+                assignmentRepository.findById(id)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Assignment not found with id: " + id
+                                ));
 
-        if (existingAssignment.isPresent()) {
+        MaintenanceRequest maintenanceRequest =
+                maintenanceRequestRepository
+                        .findById(dto.getMaintenanceRequestId())
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Maintenance request not found with id: "
+                                                + dto.getMaintenanceRequestId()
+                                ));
 
-            Assignment assignment =
-                    existingAssignment.get();
+        User vendor =
+                userRepository
+                        .findById(dto.getVendorId())
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "User not found with id: "
+                                                + dto.getVendorId()
+                                ));
 
-            MaintenanceRequest maintenanceRequest =
-                    maintenanceRequestRepository
-                            .findById(dto.getMaintenanceRequestId())
-                            .orElse(null);
+        assignment.setMaintenanceRequest(maintenanceRequest);
+        assignment.setVendor(vendor);
+        assignment.setAssignedAt(dto.getAssignedAt());
+        assignment.setRespondedAt(dto.getRespondedAt());
+        assignment.setStatus(dto.getStatus());
+        assignment.setNotes(dto.getNotes());
 
-            User vendor =
-                    userRepository
-                            .findById(dto.getVendorId())
-                            .orElse(null);
+        Assignment savedAssignment =
+                assignmentRepository.save(assignment);
 
-            assignment.setMaintenanceRequest(maintenanceRequest);
-            assignment.setVendor(vendor);
-            assignment.setAssignedAt(dto.getAssignedAt());
-            assignment.setRespondedAt(dto.getRespondedAt());
-            assignment.setStatus(dto.getStatus());
-            assignment.setNotes(dto.getNotes());
-
-            Assignment savedAssignment =
-                    assignmentRepository.save(assignment);
-
-            return AssignmentMapper.toResponseDto(
-                    savedAssignment);
-        }
-
-        return null;
+        return AssignmentMapper.toResponseDto(savedAssignment);
     }
 
     public String deleteAssignment(Long id) {
 
-        Optional<Assignment> assignment =
-                assignmentRepository.findById(id);
+        Assignment assignment =
+                assignmentRepository.findById(id)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Assignment not found with id: " + id
+                                ));
 
-        if (assignment.isPresent()) {
-            assignmentRepository.delete(assignment.get());
-            return "Assignment Deleted";
-        }
+        assignmentRepository.delete(assignment);
 
-        return "Assignment not found";
+        return "Assignment Deleted";
     }
 
     public List<AssignmentResponseDto> getAssignmentsByMaintenanceRequestId(

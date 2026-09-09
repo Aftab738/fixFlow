@@ -5,6 +5,7 @@ import com.maintenance.fixFlow.dto.RatingResponseDto;
 import com.maintenance.fixFlow.entity.Rating;
 import com.maintenance.fixFlow.entity.User;
 import com.maintenance.fixFlow.entity.MaintenanceRequest;
+import com.maintenance.fixFlow.exception.ResourceNotFoundException;
 import com.maintenance.fixFlow.mapper.RatingMapper;
 import com.maintenance.fixFlow.repository.RatingRepository;
 import com.maintenance.fixFlow.repository.UserRepository;
@@ -37,17 +38,29 @@ public class RatingService {
         MaintenanceRequest maintenanceRequest =
                 maintenanceRequestRepository
                         .findById(dto.getMaintenanceRequestId())
-                        .orElse(null);
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Maintenance request not found with id: "
+                                                + dto.getMaintenanceRequestId()
+                                ));
 
         User vendor =
                 userRepository
                         .findById(dto.getVendorId())
-                        .orElse(null);
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "User not found with id: "
+                                                + dto.getVendorId()
+                                ));
 
         User tenant =
                 userRepository
                         .findById(dto.getTenantId())
-                        .orElse(null);
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "User not found with id: "
+                                                + dto.getTenantId()
+                                ));
 
         Rating rating =
                 RatingMapper.toEntity(
@@ -63,14 +76,14 @@ public class RatingService {
 
     public RatingResponseDto getRatingById(Long id) {
 
-        Optional<Rating> rating =
-                ratingRepository.findById(id);
+        Rating rating =
+                ratingRepository.findById(id)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Rating not found with id: " + id
+                                ));
 
-        if (rating.isPresent()) {
-            return RatingMapper.toResponseDto(rating.get());
-        }
-
-        return null;
+        return RatingMapper.toResponseDto(rating);
     }
 
     public List<RatingResponseDto> getAllRatings() {
@@ -89,54 +102,63 @@ public class RatingService {
             RatingRequestDto dto,
             Long id) {
 
-        Optional<Rating> existingRating =
-                ratingRepository.findById(id);
+        Rating rating =
+                ratingRepository.findById(id)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Rating not found with id: " + id
+                                ));
 
-        if (existingRating.isPresent()) {
+        MaintenanceRequest maintenanceRequest =
+                maintenanceRequestRepository
+                        .findById(dto.getMaintenanceRequestId())
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Maintenance request not found with id: "
+                                                + dto.getMaintenanceRequestId()
+                                ));
 
-            Rating rating = existingRating.get();
+        User vendor =
+                userRepository
+                        .findById(dto.getVendorId())
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "User not found with id: "
+                                                + dto.getVendorId()
+                                ));
 
-            MaintenanceRequest maintenanceRequest =
-                    maintenanceRequestRepository
-                            .findById(dto.getMaintenanceRequestId())
-                            .orElse(null);
+        User tenant =
+                userRepository
+                        .findById(dto.getTenantId())
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "User not found with id: "
+                                                + dto.getTenantId()
+                                ));
 
-            User vendor =
-                    userRepository
-                            .findById(dto.getVendorId())
-                            .orElse(null);
+        rating.setScore(dto.getScore());
+        rating.setComment(dto.getComment());
+        rating.setMaintenanceRequest(maintenanceRequest);
+        rating.setVendor(vendor);
+        rating.setTenant(tenant);
 
-            User tenant =
-                    userRepository
-                            .findById(dto.getTenantId())
-                            .orElse(null);
+        Rating savedRating = ratingRepository.save(rating);
 
-            rating.setScore(dto.getScore());
-            rating.setComment(dto.getComment());
-            rating.setMaintenanceRequest(maintenanceRequest);
-            rating.setVendor(vendor);
-            rating.setTenant(tenant);
-
-            Rating savedRating =
-                    ratingRepository.save(rating);
-
-            return RatingMapper.toResponseDto(savedRating);
-        }
-
-        return null;
+        return RatingMapper.toResponseDto(savedRating);
     }
 
     public String deleteRating(Long id) {
 
-        Optional<Rating> rating =
-                ratingRepository.findById(id);
+        Rating rating =
+                ratingRepository.findById(id)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Rating not found with id: " + id
+                                ));
 
-        if (rating.isPresent()) {
-            ratingRepository.delete(rating.get());
-            return "Rating Deleted";
-        }
+        ratingRepository.delete(rating);
 
-        return "Rating not found";
+        return "Rating Deleted";
     }
 
     public Optional<RatingResponseDto> getRatingByMaintenanceRequestId(

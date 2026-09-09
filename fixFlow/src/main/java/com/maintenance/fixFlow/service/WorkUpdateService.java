@@ -5,6 +5,7 @@ import com.maintenance.fixFlow.dto.WorkUpdateResponseDto;
 import com.maintenance.fixFlow.entity.MaintenanceRequest;
 import com.maintenance.fixFlow.entity.User;
 import com.maintenance.fixFlow.entity.WorkUpdate;
+import com.maintenance.fixFlow.exception.ResourceNotFoundException;
 import com.maintenance.fixFlow.mapper.WorkUpdateMapper;
 import com.maintenance.fixFlow.repository.MaintenanceRequestRepository;
 import com.maintenance.fixFlow.repository.UserRepository;
@@ -13,7 +14,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class WorkUpdateService {
@@ -38,12 +38,20 @@ public class WorkUpdateService {
         MaintenanceRequest maintenanceRequest =
                 maintenanceRequestRepository
                         .findById(dto.getMaintenanceRequestId())
-                        .orElse(null);
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Maintenance request not found with id: "
+                                                + dto.getMaintenanceRequestId()
+                                ));
 
         User vendor =
                 userRepository
                         .findById(dto.getVendorId())
-                        .orElse(null);
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "User not found with id: "
+                                                + dto.getVendorId()
+                                ));
 
         WorkUpdate workUpdate =
                 WorkUpdateMapper.toEntity(
@@ -59,15 +67,14 @@ public class WorkUpdateService {
 
     public WorkUpdateResponseDto getWorkUpdateById(Long id) {
 
-        Optional<WorkUpdate> workUpdate =
-                workUpdateRepository.findById(id);
+        WorkUpdate workUpdate =
+                workUpdateRepository.findById(id)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Work update not found with id: " + id
+                                ));
 
-        if (workUpdate.isPresent()) {
-            return WorkUpdateMapper.toResponseDto(
-                    workUpdate.get());
-        }
-
-        return null;
+        return WorkUpdateMapper.toResponseDto(workUpdate);
     }
 
     public List<WorkUpdateResponseDto> getAllWorkUpdates() {
@@ -89,49 +96,53 @@ public class WorkUpdateService {
             WorkUpdateRequestDto dto,
             Long id) {
 
-        Optional<WorkUpdate> existingWorkUpdate =
-                workUpdateRepository.findById(id);
+        WorkUpdate workUpdate =
+                workUpdateRepository.findById(id)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Work update not found with id: " + id
+                                ));
 
-        if (existingWorkUpdate.isPresent()) {
+        MaintenanceRequest maintenanceRequest =
+                maintenanceRequestRepository
+                        .findById(dto.getMaintenanceRequestId())
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Maintenance request not found with id: "
+                                                + dto.getMaintenanceRequestId()
+                                ));
 
-            WorkUpdate workUpdate =
-                    existingWorkUpdate.get();
+        User vendor =
+                userRepository
+                        .findById(dto.getVendorId())
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "User not found with id: "
+                                                + dto.getVendorId()
+                                ));
 
-            MaintenanceRequest maintenanceRequest =
-                    maintenanceRequestRepository
-                            .findById(dto.getMaintenanceRequestId())
-                            .orElse(null);
+        workUpdate.setMessage(dto.getMessage());
+        workUpdate.setMaintenanceRequest(maintenanceRequest);
+        workUpdate.setVendor(vendor);
 
-            User vendor =
-                    userRepository
-                            .findById(dto.getVendorId())
-                            .orElse(null);
+        WorkUpdate savedWorkUpdate =
+                workUpdateRepository.save(workUpdate);
 
-            workUpdate.setMessage(dto.getMessage());
-            workUpdate.setMaintenanceRequest(maintenanceRequest);
-            workUpdate.setVendor(vendor);
-
-            WorkUpdate savedWorkUpdate =
-                    workUpdateRepository.save(workUpdate);
-
-            return WorkUpdateMapper.toResponseDto(
-                    savedWorkUpdate);
-        }
-
-        return null;
+        return WorkUpdateMapper.toResponseDto(savedWorkUpdate);
     }
 
     public String deleteWorkUpdate(Long id) {
 
-        Optional<WorkUpdate> workUpdate =
-                workUpdateRepository.findById(id);
+        WorkUpdate workUpdate =
+                workUpdateRepository.findById(id)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Work update not found with id: " + id
+                                ));
 
-        if (workUpdate.isPresent()) {
-            workUpdateRepository.delete(workUpdate.get());
-            return "Work update deleted";
-        }
+        workUpdateRepository.delete(workUpdate);
 
-        return "Work update not found";
+        return "Work update deleted";
     }
 
     public List<WorkUpdateResponseDto> getWorkUpdatesByMaintenanceRequestId(

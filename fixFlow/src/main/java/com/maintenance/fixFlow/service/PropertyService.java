@@ -3,71 +3,90 @@ package com.maintenance.fixFlow.service;
 import com.maintenance.fixFlow.dto.PropertyRequestDto;
 import com.maintenance.fixFlow.dto.PropertyResponseDto;
 import com.maintenance.fixFlow.entity.Property;
+import com.maintenance.fixFlow.exception.ResourceNotFoundException;
 import com.maintenance.fixFlow.mapper.PropertyMapper;
 import com.maintenance.fixFlow.repository.PropertyRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class PropertyService {
 
     private final PropertyRepository propertyRepository;
 
-    public PropertyService(PropertyRepository propertyRepository){
-        this.propertyRepository=propertyRepository;
+    public PropertyService(PropertyRepository propertyRepository) {
+        this.propertyRepository = propertyRepository;
     }
 
-    public PropertyResponseDto createProperty(PropertyRequestDto propertyRequestDto){
-        Property property= PropertyMapper.toEntity(propertyRequestDto);
-        return PropertyMapper.toResponseDto(propertyRepository.save(property));
+    public PropertyResponseDto createProperty(
+            PropertyRequestDto propertyRequestDto) {
+
+        Property property =
+                PropertyMapper.toEntity(propertyRequestDto);
+
+        Property savedProperty =
+                propertyRepository.save(property);
+
+        return PropertyMapper.toResponseDto(savedProperty);
     }
 
     public PropertyResponseDto getPropertyById(Long id) {
-        Optional<Property> property =
-                propertyRepository.findById(id);
-        if (property.isPresent()) {
-            return PropertyMapper.toResponseDto(property.get());
-        }
-        return null;
+
+        Property property = propertyRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Property not found with id: " + id
+                        ));
+
+        return PropertyMapper.toResponseDto(property);
     }
 
-    public List<PropertyResponseDto> getAllProperties(){
-        List<Property> propertyList= propertyRepository.findAll();
-        List<PropertyResponseDto> result=new ArrayList<>();
+    public List<PropertyResponseDto> getAllProperties() {
 
-        for(Property p:propertyList){
+        List<Property> propertyList =
+                propertyRepository.findAll();
+
+        List<PropertyResponseDto> result =
+                new ArrayList<>();
+
+        for (Property p : propertyList) {
             result.add(PropertyMapper.toResponseDto(p));
         }
+
         return result;
     }
 
-    public PropertyResponseDto updateProperty(PropertyRequestDto dto,Long id){
-        Optional<Property> property=propertyRepository.findById(id);
+    public PropertyResponseDto updateProperty(
+            PropertyRequestDto dto,
+            Long id) {
 
-        if(property.isPresent()){
-            Property p=property.get();
+        Property property = propertyRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Property not found with id: " + id
+                        ));
 
-            p.setName(dto.getName());
-            p.setAddress(dto.getAddress());
+        property.setName(dto.getName());
+        property.setAddress(dto.getAddress());
 
-            Property savedProperty= propertyRepository.save(p);
-            return PropertyMapper.toResponseDto(savedProperty);
+        Property savedProperty =
+                propertyRepository.save(property);
 
-        }
-        return null;
+        return PropertyMapper.toResponseDto(savedProperty);
     }
 
-    public String deleteProperty(Long id){
-        Optional<Property> property=propertyRepository.findById(id);
+    public String deleteProperty(Long id) {
 
-        if(property.isPresent()){
-            propertyRepository.delete(property.get());
-            return "Property Deleted";
-        }
-        return "Property not found";
+        Property property = propertyRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Property not found with id: " + id
+                        ));
+
+        propertyRepository.delete(property);
+
+        return "Property Deleted";
     }
-
 }

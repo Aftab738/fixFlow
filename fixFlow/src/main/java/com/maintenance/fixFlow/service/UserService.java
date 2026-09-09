@@ -3,6 +3,7 @@ import com.maintenance.fixFlow.dto.UserRequestDto;
 import com.maintenance.fixFlow.dto.UserResponseDto;
 import com.maintenance.fixFlow.entity.Unit;
 import com.maintenance.fixFlow.entity.User;
+import com.maintenance.fixFlow.exception.ResourceNotFoundException;
 import com.maintenance.fixFlow.mapper.UserMapper;
 import com.maintenance.fixFlow.repository.UnitRepository;
 import com.maintenance.fixFlow.repository.UserRepository;
@@ -10,7 +11,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class UserService {
@@ -25,7 +25,11 @@ public class UserService {
 
     public UserResponseDto createUser(UserRequestDto dto) {
         Unit unit = unitRepository.findById(dto.getUnitId())
-                .orElse(null);
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Unit not found with id: " + dto.getUnitId()
+                        )
+                );
 
         User user = UserMapper.toEntity(dto, unit);
         User savedUser = userRepository.save(user);
@@ -34,19 +38,15 @@ public class UserService {
     }
 
     public UserResponseDto getUserById(Long id){
-        Optional<User> user=userRepository.findById(id);
-        if(user.isPresent()){
-            return UserMapper.toResponseDto(user.get());
-        }
-        return null;
+        User user=userRepository.findById(id)
+                .orElseThrow(()->new ResourceNotFoundException("User not found with id:"+id));
+        return UserMapper.toResponseDto(user);
     }
 
     public UserResponseDto getUserByEmail(String email){
-        Optional<User> user=userRepository.findByEmail(email);
-        if(user.isPresent()){
-            return UserMapper.toResponseDto(user.get());
-        }
-        return null;
+        User user=userRepository.findByEmail(email)
+                .orElseThrow(()->new ResourceNotFoundException("User not found with email:"+email));
+        return UserMapper.toResponseDto(user);
     }
 
     public List<UserResponseDto> getAllUsers() {
@@ -62,13 +62,15 @@ public class UserService {
     }
 
     public UserResponseDto updateUser(UserRequestDto dto, Long id) {
-        Optional<User> us = userRepository.findById(id);
-        if (us.isPresent()) {
+        User user=userRepository.findById(id)
+                .orElseThrow(()->new ResourceNotFoundException("User not found with id:"+id));
 
-            User user = us.get();
 
             Unit unit = unitRepository.findById(dto.getUnitId())
-                    .orElse(null);
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                        "Unit not found with id: " + dto.getUnitId()
+                )
+                    );
 
             user.setName(dto.getName());
             user.setUnit(unit);
@@ -79,20 +81,18 @@ public class UserService {
             User savedUser = userRepository.save(user);
 
             return UserMapper.toResponseDto(savedUser);
-        }
 
-        return null;
     }
 
-    public String deleteUserById(Long id){
-        Optional<User> user = userRepository.findById(id);
-
-        if(user.isPresent()) {
-            userRepository.deleteById(id);
-            return "User Deleted";
-        }
-
-        return "User is not present";
+    public String deleteUserById(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "User not found with id: " + id
+                        )
+                );
+        userRepository.delete(user);
+        return "User Deleted";
     }
 
 }

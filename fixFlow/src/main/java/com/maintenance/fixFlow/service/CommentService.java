@@ -5,6 +5,7 @@ import com.maintenance.fixFlow.dto.CommentResponseDto;
 import com.maintenance.fixFlow.entity.Comment;
 import com.maintenance.fixFlow.entity.MaintenanceRequest;
 import com.maintenance.fixFlow.entity.User;
+import com.maintenance.fixFlow.exception.ResourceNotFoundException;
 import com.maintenance.fixFlow.mapper.CommentMapper;
 import com.maintenance.fixFlow.repository.CommentRepository;
 import com.maintenance.fixFlow.repository.MaintenanceRequestRepository;
@@ -13,7 +14,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class CommentService {
@@ -35,12 +35,19 @@ public class CommentService {
     public CommentResponseDto createComment(CommentRequestDto dto) {
 
         User author = userRepository.findById(dto.getAuthorId())
-                .orElse(null);
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "User not found with id: " + dto.getAuthorId()
+                        ));
 
         MaintenanceRequest maintenanceRequest =
                 maintenanceRequestRepository
                         .findById(dto.getMaintenanceRequestId())
-                        .orElse(null);
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Maintenance request not found with id: "
+                                                + dto.getMaintenanceRequestId()
+                                ));
 
         Comment comment =
                 CommentMapper.toEntity(dto, author, maintenanceRequest);
@@ -52,13 +59,13 @@ public class CommentService {
 
     public CommentResponseDto getCommentById(Long id) {
 
-        Optional<Comment> comment = commentRepository.findById(id);
+        Comment comment = commentRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Comment not found with id: " + id
+                        ));
 
-        if (comment.isPresent()) {
-            return CommentMapper.toResponseDto(comment.get());
-        }
-
-        return null;
+        return CommentMapper.toResponseDto(comment);
     }
 
     public List<CommentResponseDto> getAllComments() {
@@ -77,44 +84,47 @@ public class CommentService {
             CommentRequestDto dto,
             Long id) {
 
-        Optional<Comment> existingComment =
-                commentRepository.findById(id);
+        Comment comment = commentRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Comment not found with id: " + id
+                        ));
 
-        if (existingComment.isPresent()) {
+        User author = userRepository.findById(dto.getAuthorId())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "User not found with id: " + dto.getAuthorId()
+                        ));
 
-            Comment comment = existingComment.get();
+        MaintenanceRequest maintenanceRequest =
+                maintenanceRequestRepository
+                        .findById(dto.getMaintenanceRequestId())
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Maintenance request not found with id: "
+                                                + dto.getMaintenanceRequestId()
+                                ));
 
-            User author = userRepository.findById(dto.getAuthorId())
-                    .orElse(null);
+        comment.setMessage(dto.getMessage());
+        comment.setAuthor(author);
+        comment.setMaintenanceRequest(maintenanceRequest);
 
-            MaintenanceRequest maintenanceRequest =
-                    maintenanceRequestRepository
-                            .findById(dto.getMaintenanceRequestId())
-                            .orElse(null);
+        Comment savedComment = commentRepository.save(comment);
 
-            comment.setMessage(dto.getMessage());
-            comment.setAuthor(author);
-            comment.setMaintenanceRequest(maintenanceRequest);
-
-            Comment savedComment = commentRepository.save(comment);
-
-            return CommentMapper.toResponseDto(savedComment);
-        }
-
-        return null;
+        return CommentMapper.toResponseDto(savedComment);
     }
 
     public String deleteComment(Long id) {
 
-        Optional<Comment> comment =
-                commentRepository.findById(id);
+        Comment comment = commentRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Comment not found with id: " + id
+                        ));
 
-        if (comment.isPresent()) {
-            commentRepository.delete(comment.get());
-            return "Comment Deleted";
-        }
+        commentRepository.delete(comment);
 
-        return "Comment not found";
+        return "Comment Deleted";
     }
 
     public List<CommentResponseDto> getCommentsByMaintenanceRequestId(
