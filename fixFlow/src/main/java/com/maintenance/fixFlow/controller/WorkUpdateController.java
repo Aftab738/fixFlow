@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
+@RequestMapping("/api/workUpdate")
 public class WorkUpdateController {
 
     private final WorkUpdateService workUpdateService;

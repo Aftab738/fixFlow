@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
+@RequestMapping("/api/attachment")
 public class AttachmentController {
 
     private final AttachmentService attachmentService;

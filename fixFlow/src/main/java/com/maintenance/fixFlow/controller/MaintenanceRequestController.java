@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
+@RequestMapping("/api/maintenanceRequest")
 public class MaintenanceRequestController {
 
     private final MaintenanceRequestService maintenanceRequestService;

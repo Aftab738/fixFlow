@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
+@RequestMapping("/api/rating")
 public class RatingController {
 
     private final RatingService ratingService;
