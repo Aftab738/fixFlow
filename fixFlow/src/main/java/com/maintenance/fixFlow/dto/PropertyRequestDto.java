@@ -10,10 +10,10 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class PropertyRequestDto {
-    @NotBlank(message = "Enter your name")
+    @NotBlank(message = "Enter the name")
     @Size(min = 3,max = 50)
     private String name;
 
-    @NotBlank(message = "Enter your address")
+    @NotBlank(message = "Enter the address")
     private String address;
 }

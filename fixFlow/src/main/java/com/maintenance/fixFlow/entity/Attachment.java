@@ -31,7 +31,6 @@ public class Attachment {
 
     private String description;
 
-    @Column(nullable = false)
     private String storagePath;
 
     @CreatedDate

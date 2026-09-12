@@ -12,7 +12,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class AttachmentRequestDto {
-    @NotBlank(message = "Enter your name")
+    @NotBlank(message = "Enter the name")
     @Size(min = 3,max = 50)
     private String name;
 

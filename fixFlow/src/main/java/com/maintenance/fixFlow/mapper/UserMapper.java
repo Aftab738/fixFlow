@@ -26,6 +26,7 @@ public class UserMapper {
         dto.setName(user.getName());
         dto.setPhone(user.getPhone());
         dto.setRole(user.getRole());
+        dto.setId(user.getId());
 
 
         if(user.getUnit()!=null){

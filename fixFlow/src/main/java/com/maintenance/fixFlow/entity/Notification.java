@@ -24,6 +24,7 @@ public class Notification {
     @Column(nullable = false)
     private NotificationType type;
 
+    @Column(name = "is_read")
     private boolean read;
 
     @CreatedDate
