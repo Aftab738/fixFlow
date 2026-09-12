@@ -2,10 +2,9 @@ package com.maintenance.fixFlow.service;
 
 import com.maintenance.fixFlow.dto.AssignmentRequestDto;
 import com.maintenance.fixFlow.dto.AssignmentResponseDto;
-import com.maintenance.fixFlow.entity.Assignment;
-import com.maintenance.fixFlow.entity.AssignmentStatus;
-import com.maintenance.fixFlow.entity.MaintenanceRequest;
-import com.maintenance.fixFlow.entity.User;
+import com.maintenance.fixFlow.dto.NotificationRequestDto;
+import com.maintenance.fixFlow.entity.*;
+import com.maintenance.fixFlow.exception.BusinessException;
 import com.maintenance.fixFlow.exception.ResourceNotFoundException;
 import com.maintenance.fixFlow.mapper.AssignmentMapper;
 import com.maintenance.fixFlow.repository.AssignmentRepository;
@@ -23,14 +22,17 @@ public class AssignmentService {
     private final MaintenanceRequestRepository maintenanceRequestRepository;
     private final UserRepository userRepository;
 
+    private final NotificationService notificationService;
+
     public AssignmentService(
             AssignmentRepository assignmentRepository,
             MaintenanceRequestRepository maintenanceRequestRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository, NotificationService notificationService) {
 
         this.assignmentRepository = assignmentRepository;
         this.maintenanceRequestRepository = maintenanceRequestRepository;
         this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
     public AssignmentResponseDto createAssignment(
@@ -60,8 +62,23 @@ public class AssignmentService {
                         maintenanceRequest,
                         vendor);
 
+        assignment.setStatus(AssignmentStatus.PENDING); // New assignments always start as PENDING
+
         Assignment savedAssignment =
                 assignmentRepository.save(assignment);
+
+        //changing the maintenanceRequest status to Assigned
+        maintenanceRequest.setStatus(MaintenanceStatus.ASSIGNED);
+        maintenanceRequestRepository.save(maintenanceRequest);
+
+        //Automated Notification
+        NotificationRequestDto notificationRequestDto=new NotificationRequestDto();
+        notificationRequestDto.setMessage("A maintenance request has been assigned to you.");
+        notificationRequestDto.setType(NotificationType.REQUEST_ASSIGNED);
+        notificationRequestDto.setRead(false);
+        notificationRequestDto.setUserId(vendor.getId());
+
+        notificationService.createNotification(notificationRequestDto);
 
         return AssignmentMapper.toResponseDto(savedAssignment);
     }
@@ -126,8 +143,53 @@ public class AssignmentService {
         assignment.setVendor(vendor);
         assignment.setAssignedAt(dto.getAssignedAt());
         assignment.setRespondedAt(dto.getRespondedAt());
-        assignment.setStatus(dto.getStatus());
         assignment.setNotes(dto.getNotes());
+
+        //Checking Assignment status Transition before update.
+        AssignmentStatus oldStatus = assignment.getStatus();
+        AssignmentStatus newStatus = dto.getStatus();
+
+        if (!isValidStatusTransition(oldStatus, newStatus)) {
+            throw new BusinessException(
+                    "Invalid assignment status transition: "
+                            + oldStatus + " to " + newStatus
+            );
+        }
+
+        assignment.setStatus(newStatus);
+
+        // Notify tenant about vendor response
+        if (oldStatus == AssignmentStatus.PENDING &&
+                newStatus == AssignmentStatus.ACCEPTED) {
+
+            NotificationRequestDto n = new NotificationRequestDto();
+            n.setMessage("Your maintenance request has been accepted by the vendor.");
+            n.setType(NotificationType.ASSIGNMENT_ACCEPTED);
+            n.setRead(false);
+            n.setUserId(maintenanceRequest.getReportedBy().getId());
+
+            notificationService.createNotification(n);
+        }
+
+        if (oldStatus == AssignmentStatus.PENDING &&
+                newStatus == AssignmentStatus.REJECTED) {
+
+            NotificationRequestDto n = new NotificationRequestDto();
+            n.setMessage("Your maintenance request has been rejected by the vendor.");
+            n.setType(NotificationType.ASSIGNMENT_REJECTED);
+            n.setRead(false);
+            n.setUserId(maintenanceRequest.getReportedBy().getId());
+
+            notificationService.createNotification(n);
+        }
+
+        //updating the maintenanceReq status according to the new Assignment Status
+        if(newStatus==AssignmentStatus.ACCEPTED) maintenanceRequest.setStatus(MaintenanceStatus.IN_PROGRESS);
+        if(newStatus==AssignmentStatus.COMPLETED) maintenanceRequest.setStatus(MaintenanceStatus.COMPLETED);
+        if(newStatus==AssignmentStatus.REJECTED) maintenanceRequest.setStatus(MaintenanceStatus.REJECTED);
+        if(newStatus==AssignmentStatus.CANCELLED) maintenanceRequest.setStatus(MaintenanceStatus.CANCELLED);
+
+        maintenanceRequestRepository.save(maintenanceRequest);
 
         Assignment savedAssignment =
                 assignmentRepository.save(assignment);
@@ -214,5 +276,27 @@ public class AssignmentService {
         }
 
         return res;
+    }
+
+    private boolean isValidStatusTransition(
+            AssignmentStatus oldStatus,
+            AssignmentStatus newStatus) {
+
+        // Status not changed
+        if (oldStatus == newStatus) return true;
+
+        if (oldStatus == AssignmentStatus.PENDING && newStatus == AssignmentStatus.ACCEPTED) return true;
+
+        if (oldStatus == AssignmentStatus.ACCEPTED && newStatus == AssignmentStatus.COMPLETED) return true;
+
+        // Rejection
+        if (oldStatus == AssignmentStatus.PENDING && newStatus == AssignmentStatus.REJECTED) return true;
+
+        // Cancellation
+        if (oldStatus == AssignmentStatus.PENDING && newStatus == AssignmentStatus.CANCELLED) return true;
+
+        if (oldStatus == AssignmentStatus.ACCEPTED && newStatus == AssignmentStatus.CANCELLED) return true;
+
+        return false;
     }
 }

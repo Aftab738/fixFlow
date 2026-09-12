@@ -3,6 +3,7 @@ package com.maintenance.fixFlow.service;
 import com.maintenance.fixFlow.dto.MaintenanceRequestRequestDto;
 import com.maintenance.fixFlow.dto.MaintenanceRequestResponseDto;
 import com.maintenance.fixFlow.entity.*;
+import com.maintenance.fixFlow.exception.BusinessException;
 import com.maintenance.fixFlow.exception.ResourceNotFoundException;
 import com.maintenance.fixFlow.mapper.MaintenanceRequestMapper;
 import com.maintenance.fixFlow.repository.MaintenanceRequestRepository;
@@ -109,7 +110,16 @@ public class MaintenanceRequestService {
         mr.setPriority(dto.getPriority());
         mr.setTitle(dto.getTitle());
         mr.setReportedBy(user);
-        mr.setStatus(dto.getStatus());
+
+        //Check if the status transition is valid or not
+        MaintenanceStatus oldStatus=mr.getStatus();
+        MaintenanceStatus newStatus=dto.getStatus();
+
+        if(!isValidStatusTransition(oldStatus,newStatus)){
+            throw new BusinessException("Invalid status transition:"+oldStatus+" "+"to "+ newStatus);
+        }
+
+        mr.setStatus(newStatus);
 
         MaintenanceRequest maintenanceRequest =
                 maintenanceRequestRepository.save(mr);
@@ -209,5 +219,34 @@ public class MaintenanceRequestService {
         }
 
         return res;
+    }
+
+    private boolean isValidStatusTransition(MaintenanceStatus oldStatus,MaintenanceStatus newStatus){
+
+        //Status Not Changed
+        if(oldStatus==newStatus) return true;
+
+        if(oldStatus==MaintenanceStatus.SUBMITTED && newStatus==MaintenanceStatus.UNDER_REVIEW) return true;
+
+        if(oldStatus==MaintenanceStatus.UNDER_REVIEW && newStatus==MaintenanceStatus.ASSIGNED) return true;
+
+        if(oldStatus==MaintenanceStatus.ASSIGNED && newStatus==MaintenanceStatus.IN_PROGRESS) return true;
+
+        if(oldStatus==MaintenanceStatus.IN_PROGRESS && newStatus==MaintenanceStatus.COMPLETED) return true;
+
+        //Cancellation
+        if(oldStatus==MaintenanceStatus.SUBMITTED && newStatus==MaintenanceStatus.CANCELLED) return true;
+
+        if(oldStatus==MaintenanceStatus.UNDER_REVIEW && newStatus==MaintenanceStatus.CANCELLED) return true;
+
+        if(oldStatus==MaintenanceStatus.ASSIGNED && newStatus==MaintenanceStatus.CANCELLED) return true;
+
+        if(oldStatus==MaintenanceStatus.IN_PROGRESS && newStatus==MaintenanceStatus.CANCELLED) return true;
+
+        //Rejection
+        if(oldStatus==MaintenanceStatus.UNDER_REVIEW && newStatus==MaintenanceStatus.REJECTED) return true;
+
+        //Invalid status transition
+        return false;
     }
 }
