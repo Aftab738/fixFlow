@@ -38,8 +38,7 @@ public class AssignmentService {
     public AssignmentResponseDto createAssignment(
             AssignmentRequestDto dto) {
 
-        MaintenanceRequest maintenanceRequest =
-                maintenanceRequestRepository
+        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository
                         .findById(dto.getMaintenanceRequestId())
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
@@ -47,25 +46,21 @@ public class AssignmentService {
                                                 + dto.getMaintenanceRequestId()
                                 ));
 
-        User vendor =
-                userRepository
-                        .findById(dto.getVendorId())
+        User vendor = userRepository.findById(dto.getVendorId())
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "User not found with id: "
                                                 + dto.getVendorId()
                                 ));
 
-        Assignment assignment =
-                AssignmentMapper.toEntity(
+        Assignment assignment = AssignmentMapper.toEntity(
                         dto,
                         maintenanceRequest,
                         vendor);
 
         assignment.setStatus(AssignmentStatus.PENDING); // New assignments always start as PENDING
 
-        Assignment savedAssignment =
-                assignmentRepository.save(assignment);
+        Assignment savedAssignment = assignmentRepository.save(assignment);
 
         //changing the maintenanceRequest status to Assigned
         maintenanceRequest.setStatus(MaintenanceStatus.ASSIGNED);
@@ -85,8 +80,7 @@ public class AssignmentService {
 
     public AssignmentResponseDto getAssignmentById(Long id) {
 
-        Assignment assignment =
-                assignmentRepository.findById(id)
+        Assignment assignment = assignmentRepository.findById(id)
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "Assignment not found with id: " + id
@@ -114,15 +108,13 @@ public class AssignmentService {
             AssignmentRequestDto dto,
             Long id) {
 
-        Assignment assignment =
-                assignmentRepository.findById(id)
+        Assignment assignment = assignmentRepository.findById(id)
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "Assignment not found with id: " + id
                                 ));
 
-        MaintenanceRequest maintenanceRequest =
-                maintenanceRequestRepository
+        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository
                         .findById(dto.getMaintenanceRequestId())
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
@@ -130,9 +122,7 @@ public class AssignmentService {
                                                 + dto.getMaintenanceRequestId()
                                 ));
 
-        User vendor =
-                userRepository
-                        .findById(dto.getVendorId())
+        User vendor = userRepository.findById(dto.getVendorId())
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "User not found with id: "
@@ -191,6 +181,17 @@ public class AssignmentService {
 
         maintenanceRequestRepository.save(maintenanceRequest);
 
+        if(newStatus==AssignmentStatus.COMPLETED){ //sends notification to the tenant when its Maintenance request is completed
+            NotificationRequestDto n=new NotificationRequestDto();
+
+            n.setMessage("Your Maintenance request has been completed");
+            n.setType(NotificationType.REQUEST_COMPLETED);
+            n.setRead(false);
+            n.setUserId(maintenanceRequest.getReportedBy().getId());
+
+            notificationService.createNotification(n);
+        }
+
         Assignment savedAssignment =
                 assignmentRepository.save(assignment);
 
@@ -199,8 +200,7 @@ public class AssignmentService {
 
     public String deleteAssignment(Long id) {
 
-        Assignment assignment =
-                assignmentRepository.findById(id)
+        Assignment assignment = assignmentRepository.findById(id)
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "Assignment not found with id: " + id
@@ -214,12 +214,10 @@ public class AssignmentService {
     public List<AssignmentResponseDto> getAssignmentsByMaintenanceRequestId(
             Long maintenanceRequestId) {
 
-        List<Assignment> list =
-                assignmentRepository
+        List<Assignment> list = assignmentRepository
                         .findByMaintenanceRequestId(maintenanceRequestId);
 
-        List<AssignmentResponseDto> res =
-                new ArrayList<>();
+        List<AssignmentResponseDto> res = new ArrayList<>();
 
         for (Assignment assignment : list) {
             res.add(AssignmentMapper.toResponseDto(assignment));
@@ -231,11 +229,9 @@ public class AssignmentService {
     public List<AssignmentResponseDto> getAssignmentsByVendorId(
             Long vendorId) {
 
-        List<Assignment> list =
-                assignmentRepository.findByVendorId(vendorId);
+        List<Assignment> list = assignmentRepository.findByVendorId(vendorId);
 
-        List<AssignmentResponseDto> res =
-                new ArrayList<>();
+        List<AssignmentResponseDto> res = new ArrayList<>();
 
         for (Assignment assignment : list) {
             res.add(AssignmentMapper.toResponseDto(assignment));
@@ -247,11 +243,9 @@ public class AssignmentService {
     public List<AssignmentResponseDto> getAssignmentsByStatus(
             AssignmentStatus status) {
 
-        List<Assignment> list =
-                assignmentRepository.findByStatus(status);
+        List<Assignment> list = assignmentRepository.findByStatus(status);
 
-        List<AssignmentResponseDto> res =
-                new ArrayList<>();
+        List<AssignmentResponseDto> res = new ArrayList<>();
 
         for (Assignment assignment : list) {
             res.add(AssignmentMapper.toResponseDto(assignment));
@@ -264,12 +258,10 @@ public class AssignmentService {
             Long vendorId,
             AssignmentStatus status) {
 
-        List<Assignment> list =
-                assignmentRepository
+        List<Assignment> list = assignmentRepository
                         .findByVendorIdAndStatus(vendorId, status);
 
-        List<AssignmentResponseDto> res =
-                new ArrayList<>();
+        List<AssignmentResponseDto> res = new ArrayList<>();
 
         for (Assignment assignment : list) {
             res.add(AssignmentMapper.toResponseDto(assignment));
