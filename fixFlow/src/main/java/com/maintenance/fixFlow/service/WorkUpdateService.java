@@ -1,12 +1,13 @@
 package com.maintenance.fixFlow.service;
 
+import com.maintenance.fixFlow.dto.NotificationRequestDto;
 import com.maintenance.fixFlow.dto.WorkUpdateRequestDto;
 import com.maintenance.fixFlow.dto.WorkUpdateResponseDto;
-import com.maintenance.fixFlow.entity.MaintenanceRequest;
-import com.maintenance.fixFlow.entity.User;
-import com.maintenance.fixFlow.entity.WorkUpdate;
+import com.maintenance.fixFlow.entity.*;
+import com.maintenance.fixFlow.exception.BusinessException;
 import com.maintenance.fixFlow.exception.ResourceNotFoundException;
 import com.maintenance.fixFlow.mapper.WorkUpdateMapper;
+import com.maintenance.fixFlow.repository.AssignmentRepository;
 import com.maintenance.fixFlow.repository.MaintenanceRequestRepository;
 import com.maintenance.fixFlow.repository.UserRepository;
 import com.maintenance.fixFlow.repository.WorkUpdateRepository;
@@ -22,21 +23,25 @@ public class WorkUpdateService {
     private final MaintenanceRequestRepository maintenanceRequestRepository;
     private final UserRepository userRepository;
 
+    private final AssignmentRepository assignmentRepository;
+    private final NotificationService notificationService;
+
     public WorkUpdateService(
             WorkUpdateRepository workUpdateRepository,
             MaintenanceRequestRepository maintenanceRequestRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository, AssignmentRepository assignmentRepository, NotificationService notificationService) {
 
         this.workUpdateRepository = workUpdateRepository;
         this.maintenanceRequestRepository = maintenanceRequestRepository;
         this.userRepository = userRepository;
+        this.assignmentRepository = assignmentRepository;
+        this.notificationService = notificationService;
     }
 
     public WorkUpdateResponseDto createWorkUpdate(
             WorkUpdateRequestDto dto) {
 
-        MaintenanceRequest maintenanceRequest =
-                maintenanceRequestRepository
+        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository
                         .findById(dto.getMaintenanceRequestId())
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
@@ -44,23 +49,52 @@ public class WorkUpdateService {
                                                 + dto.getMaintenanceRequestId()
                                 ));
 
-        User vendor =
-                userRepository
-                        .findById(dto.getVendorId())
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
+        User vendor = userRepository.findById(dto.getVendorId())
+                        .orElseThrow(() ->new ResourceNotFoundException(
                                         "User not found with id: "
                                                 + dto.getVendorId()
                                 ));
 
-        WorkUpdate workUpdate =
-                WorkUpdateMapper.toEntity(
+        List<Assignment> assignments =
+                assignmentRepository.findByMaintenanceRequestId(
+                        maintenanceRequest.getId());
+
+        boolean assigned = false;
+
+        for (Assignment a : assignments) {
+
+            if (a.getVendor().getId().equals(vendor.getId()) &&
+                    (a.getStatus() == AssignmentStatus.PENDING ||
+                            a.getStatus() == AssignmentStatus.ACCEPTED)) {
+
+                assigned = true;
+                break;
+            }
+        }
+
+        if (!assigned) {
+            throw new BusinessException(
+                    "Vendor is not assigned to this maintenance request"
+            );
+        }
+
+        WorkUpdate workUpdate = WorkUpdateMapper.toEntity(
                         dto,
                         maintenanceRequest,
                         vendor);
 
         WorkUpdate savedWorkUpdate =
                 workUpdateRepository.save(workUpdate);
+
+        User tenant = maintenanceRequest.getReportedBy();
+
+        NotificationRequestDto n = new NotificationRequestDto();
+        n.setMessage("New work update added to your maintenance request.");
+        n.setType(NotificationType.WORK_UPDATE);
+        n.setRead(false);
+        n.setUserId(tenant.getId());
+
+        notificationService.createNotification(n);
 
         return WorkUpdateMapper.toResponseDto(savedWorkUpdate);
     }

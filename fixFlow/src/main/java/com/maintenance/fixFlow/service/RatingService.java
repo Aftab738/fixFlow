@@ -2,11 +2,11 @@ package com.maintenance.fixFlow.service;
 
 import com.maintenance.fixFlow.dto.RatingRequestDto;
 import com.maintenance.fixFlow.dto.RatingResponseDto;
-import com.maintenance.fixFlow.entity.Rating;
-import com.maintenance.fixFlow.entity.User;
-import com.maintenance.fixFlow.entity.MaintenanceRequest;
+import com.maintenance.fixFlow.entity.*;
+import com.maintenance.fixFlow.exception.BusinessException;
 import com.maintenance.fixFlow.exception.ResourceNotFoundException;
 import com.maintenance.fixFlow.mapper.RatingMapper;
+import com.maintenance.fixFlow.repository.AssignmentRepository;
 import com.maintenance.fixFlow.repository.RatingRepository;
 import com.maintenance.fixFlow.repository.UserRepository;
 import com.maintenance.fixFlow.repository.MaintenanceRequestRepository;
@@ -22,21 +22,23 @@ public class RatingService {
     private final RatingRepository ratingRepository;
     private final UserRepository userRepository;
     private final MaintenanceRequestRepository maintenanceRequestRepository;
+    private final AssignmentRepository assignmentRepository;
 
     public RatingService(
             RatingRepository ratingRepository,
             UserRepository userRepository,
-            MaintenanceRequestRepository maintenanceRequestRepository) {
+            MaintenanceRequestRepository maintenanceRequestRepository,
+            AssignmentRepository assignmentRepository) {
 
         this.ratingRepository = ratingRepository;
         this.userRepository = userRepository;
         this.maintenanceRequestRepository = maintenanceRequestRepository;
+        this.assignmentRepository = assignmentRepository;
     }
 
     public RatingResponseDto createRating(RatingRequestDto dto) {
 
-        MaintenanceRequest maintenanceRequest =
-                maintenanceRequestRepository
+        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository
                         .findById(dto.getMaintenanceRequestId())
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
@@ -44,26 +46,64 @@ public class RatingService {
                                                 + dto.getMaintenanceRequestId()
                                 ));
 
-        User vendor =
-                userRepository
-                        .findById(dto.getVendorId())
+        User vendor = userRepository.findById(dto.getVendorId())
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "User not found with id: "
                                                 + dto.getVendorId()
                                 ));
 
-        User tenant =
-                userRepository
-                        .findById(dto.getTenantId())
+        User tenant = userRepository.findById(dto.getTenantId())
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "User not found with id: "
                                                 + dto.getTenantId()
                                 ));
 
-        Rating rating =
-                RatingMapper.toEntity(
+        if (maintenanceRequest.getStatus() != MaintenanceStatus.COMPLETED) {
+            throw new BusinessException(
+                    "Only completed maintenance requests can be rated"
+            );
+        }
+
+        if (!maintenanceRequest.getReportedBy().getId()
+                .equals(tenant.getId())) {
+
+            throw new BusinessException(
+                    "Only the tenant who reported the request can rate it"
+            );
+        }
+
+        List<Assignment> assignments =
+                assignmentRepository.findByMaintenanceRequestId(
+                        maintenanceRequest.getId());
+
+        boolean assigned = false;
+
+        for (Assignment a : assignments) {
+
+            if (a.getVendor().getId().equals(vendor.getId())) {
+                assigned = true;
+                break;
+            }
+        }
+
+        if (!assigned) {
+            throw new BusinessException(
+                    "Vendor was not assigned to this maintenance request"
+            );
+        }
+
+        Optional<Rating> existing = ratingRepository.findByMaintenanceRequestId(
+                        maintenanceRequest.getId());
+
+        if (existing.isPresent()) {
+            throw new BusinessException(
+                    "Maintenance request has already been rated"
+            );
+        }
+
+        Rating rating =RatingMapper.toEntity(
                         dto,
                         maintenanceRequest,
                         vendor,
@@ -76,8 +116,7 @@ public class RatingService {
 
     public RatingResponseDto getRatingById(Long id) {
 
-        Rating rating =
-                ratingRepository.findById(id)
+        Rating rating = ratingRepository.findById(id)
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "Rating not found with id: " + id
@@ -88,8 +127,11 @@ public class RatingService {
 
     public List<RatingResponseDto> getAllRatings() {
 
-        List<Rating> list = ratingRepository.findAll();
-        List<RatingResponseDto> res = new ArrayList<>();
+        List<Rating> list =
+                ratingRepository.findAll();
+
+        List<RatingResponseDto> res =
+                new ArrayList<>();
 
         for (Rating rating : list) {
             res.add(RatingMapper.toResponseDto(rating));
@@ -102,35 +144,24 @@ public class RatingService {
             RatingRequestDto dto,
             Long id) {
 
-        Rating rating =
-                ratingRepository.findById(id)
-                        .orElseThrow(() ->
+        Rating rating = ratingRepository.findById(id).orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "Rating not found with id: " + id
                                 ));
 
-        MaintenanceRequest maintenanceRequest =
-                maintenanceRequestRepository
-                        .findById(dto.getMaintenanceRequestId())
-                        .orElseThrow(() ->
+        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(dto.getMaintenanceRequestId()).orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "Maintenance request not found with id: "
                                                 + dto.getMaintenanceRequestId()
                                 ));
 
-        User vendor =
-                userRepository
-                        .findById(dto.getVendorId())
-                        .orElseThrow(() ->
+        User vendor = userRepository.findById(dto.getVendorId()).orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "User not found with id: "
                                                 + dto.getVendorId()
                                 ));
 
-        User tenant =
-                userRepository
-                        .findById(dto.getTenantId())
-                        .orElseThrow(() ->
+        User tenant = userRepository.findById(dto.getTenantId()).orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "User not found with id: "
                                                 + dto.getTenantId()
@@ -142,7 +173,8 @@ public class RatingService {
         rating.setVendor(vendor);
         rating.setTenant(tenant);
 
-        Rating savedRating = ratingRepository.save(rating);
+        Rating savedRating =
+                ratingRepository.save(rating);
 
         return RatingMapper.toResponseDto(savedRating);
     }
@@ -176,12 +208,14 @@ public class RatingService {
         return Optional.empty();
     }
 
-    public List<RatingResponseDto> getRatingsByVendorId(Long vendorId) {
+    public List<RatingResponseDto> getRatingsByVendorId(
+            Long vendorId) {
 
         List<Rating> list =
                 ratingRepository.findByVendorId(vendorId);
 
-        List<RatingResponseDto> res = new ArrayList<>();
+        List<RatingResponseDto> res =
+                new ArrayList<>();
 
         for (Rating rating : list) {
             res.add(RatingMapper.toResponseDto(rating));
@@ -190,12 +224,14 @@ public class RatingService {
         return res;
     }
 
-    public List<RatingResponseDto> getRatingsByTenantId(Long tenantId) {
+    public List<RatingResponseDto> getRatingsByTenantId(
+            Long tenantId) {
 
         List<Rating> list =
                 ratingRepository.findByTenantId(tenantId);
 
-        List<RatingResponseDto> res = new ArrayList<>();
+        List<RatingResponseDto> res =
+                new ArrayList<>();
 
         for (Rating rating : list) {
             res.add(RatingMapper.toResponseDto(rating));

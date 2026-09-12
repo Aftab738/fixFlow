@@ -5,5 +5,6 @@ public enum NotificationType {
     ASSIGNMENT_ACCEPTED,
     ASSIGNMENT_REJECTED,
     REQUEST_COMPLETED,
-    NEW_COMMENT
+    NEW_COMMENT,
+    WORK_UPDATE
 }
