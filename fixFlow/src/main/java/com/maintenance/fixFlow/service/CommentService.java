@@ -2,11 +2,11 @@ package com.maintenance.fixFlow.service;
 
 import com.maintenance.fixFlow.dto.CommentRequestDto;
 import com.maintenance.fixFlow.dto.CommentResponseDto;
-import com.maintenance.fixFlow.entity.Comment;
-import com.maintenance.fixFlow.entity.MaintenanceRequest;
-import com.maintenance.fixFlow.entity.User;
+import com.maintenance.fixFlow.dto.NotificationRequestDto;
+import com.maintenance.fixFlow.entity.*;
 import com.maintenance.fixFlow.exception.ResourceNotFoundException;
 import com.maintenance.fixFlow.mapper.CommentMapper;
+import com.maintenance.fixFlow.repository.AssignmentRepository;
 import com.maintenance.fixFlow.repository.CommentRepository;
 import com.maintenance.fixFlow.repository.MaintenanceRequestRepository;
 import com.maintenance.fixFlow.repository.UserRepository;
@@ -21,15 +21,19 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final UserRepository userRepository;
     private final MaintenanceRequestRepository maintenanceRequestRepository;
+    private final AssignmentRepository assignmentRepository;
+    private final NotificationService notificationService;
 
     public CommentService(
             CommentRepository commentRepository,
             UserRepository userRepository,
-            MaintenanceRequestRepository maintenanceRequestRepository) {
+            MaintenanceRequestRepository maintenanceRequestRepository, AssignmentRepository assignmentRepository, NotificationService notificationService) {
 
         this.commentRepository = commentRepository;
         this.userRepository = userRepository;
         this.maintenanceRequestRepository = maintenanceRequestRepository;
+        this.assignmentRepository = assignmentRepository;
+        this.notificationService = notificationService;
     }
 
     public CommentResponseDto createComment(CommentRequestDto dto) {
@@ -53,6 +57,50 @@ public class CommentService {
                 CommentMapper.toEntity(dto, author, maintenanceRequest);
 
         Comment savedComment = commentRepository.save(comment);
+
+        if (author.getRole() == Role.VENDOR) { //Notifies the user/tenant when a vendor makes any comment
+
+            User tenant = maintenanceRequest.getReportedBy();
+
+            NotificationRequestDto n = new NotificationRequestDto();
+            n.setMessage("New comment added to your maintenance request.");
+            n.setType(NotificationType.NEW_COMMENT);
+            n.setRead(false);
+            n.setUserId(tenant.getId());
+
+            notificationService.createNotification(n);
+        }
+
+        if(author.getRole()==Role.TENANT){ //Tenant to Vendor
+            List<Assignment> assignments =
+                    assignmentRepository.findByMaintenanceRequestId(
+                            maintenanceRequest.getId());
+
+            Assignment currentAssignment = null;
+
+            for (Assignment a : assignments) {
+
+                if (a.getStatus() == AssignmentStatus.ACCEPTED ||
+                        a.getStatus() == AssignmentStatus.PENDING) {
+
+                    currentAssignment = a;
+                    break;
+                }
+            }
+
+            if (currentAssignment != null) {
+                User vendor = currentAssignment.getVendor();
+
+                NotificationRequestDto n=new NotificationRequestDto();
+
+                n.setMessage("New comment added to your assigned maintenance request.");
+                n.setType(NotificationType.NEW_COMMENT);
+                n.setRead(false);
+                n.setUserId(vendor.getId());
+
+                notificationService.createNotification(n);
+            }
+        }
 
         return CommentMapper.toResponseDto(savedComment);
     }
