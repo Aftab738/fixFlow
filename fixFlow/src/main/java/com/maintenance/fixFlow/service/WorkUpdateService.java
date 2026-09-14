@@ -12,6 +12,7 @@ import com.maintenance.fixFlow.repository.MaintenanceRequestRepository;
 import com.maintenance.fixFlow.repository.UserRepository;
 import com.maintenance.fixFlow.repository.WorkUpdateRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,6 +39,7 @@ public class WorkUpdateService {
         this.notificationService = notificationService;
     }
 
+    @Transactional
     public WorkUpdateResponseDto createWorkUpdate(
             WorkUpdateRequestDto dto) {
 
@@ -49,14 +51,12 @@ public class WorkUpdateService {
                                                 + dto.getMaintenanceRequestId()
                                 ));
 
-        User vendor = userRepository.findById(dto.getVendorId())
-                        .orElseThrow(() ->new ResourceNotFoundException(
+        User vendor = userRepository.findById(dto.getVendorId()).orElseThrow(() ->new ResourceNotFoundException(
                                         "User not found with id: "
                                                 + dto.getVendorId()
                                 ));
 
-        List<Assignment> assignments =
-                assignmentRepository.findByMaintenanceRequestId(
+        List<Assignment> assignments = assignmentRepository.findByMaintenanceRequestId(
                         maintenanceRequest.getId());
 
         boolean assigned = false;
@@ -83,8 +83,7 @@ public class WorkUpdateService {
                         maintenanceRequest,
                         vendor);
 
-        WorkUpdate savedWorkUpdate =
-                workUpdateRepository.save(workUpdate);
+        WorkUpdate savedWorkUpdate = workUpdateRepository.save(workUpdate);
 
         User tenant = maintenanceRequest.getReportedBy();
 

@@ -11,6 +11,9 @@ import com.maintenance.fixFlow.repository.AssignmentRepository;
 import com.maintenance.fixFlow.repository.MaintenanceRequestRepository;
 import com.maintenance.fixFlow.repository.UserRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,7 +37,7 @@ public class AssignmentService {
         this.userRepository = userRepository;
         this.notificationService = notificationService;
     }
-
+    @Transactional
     public AssignmentResponseDto createAssignment(
             AssignmentRequestDto dto) {
 
@@ -103,7 +106,7 @@ public class AssignmentService {
 
         return res;
     }
-
+    @Transactional
     public AssignmentResponseDto updateAssignment(
             AssignmentRequestDto dto,
             Long id) {
@@ -129,12 +132,6 @@ public class AssignmentService {
                                                 + dto.getVendorId()
                                 ));
 
-        assignment.setMaintenanceRequest(maintenanceRequest);
-        assignment.setVendor(vendor);
-        assignment.setAssignedAt(dto.getAssignedAt());
-        assignment.setRespondedAt(dto.getRespondedAt());
-        assignment.setNotes(dto.getNotes());
-
         //Checking Assignment status Transition before update.
         AssignmentStatus oldStatus = assignment.getStatus();
         AssignmentStatus newStatus = dto.getStatus();
@@ -145,6 +142,12 @@ public class AssignmentService {
                             + oldStatus + " to " + newStatus
             );
         }
+
+        assignment.setMaintenanceRequest(maintenanceRequest);
+        assignment.setVendor(vendor);
+        assignment.setAssignedAt(dto.getAssignedAt());
+        assignment.setRespondedAt(dto.getRespondedAt());
+        assignment.setNotes(dto.getNotes());
 
         assignment.setStatus(newStatus);
 

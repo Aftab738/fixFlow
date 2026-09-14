@@ -11,6 +11,7 @@ import com.maintenance.fixFlow.repository.CommentRepository;
 import com.maintenance.fixFlow.repository.MaintenanceRequestRepository;
 import com.maintenance.fixFlow.repository.UserRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,16 +37,15 @@ public class CommentService {
         this.notificationService = notificationService;
     }
 
+    @Transactional
     public CommentResponseDto createComment(CommentRequestDto dto) {
 
-        User author = userRepository.findById(dto.getAuthorId())
-                .orElseThrow(() ->
+        User author = userRepository.findById(dto.getAuthorId()).orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "User not found with id: " + dto.getAuthorId()
                         ));
 
-        MaintenanceRequest maintenanceRequest =
-                maintenanceRequestRepository
+        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository
                         .findById(dto.getMaintenanceRequestId())
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
@@ -53,8 +53,7 @@ public class CommentService {
                                                 + dto.getMaintenanceRequestId()
                                 ));
 
-        Comment comment =
-                CommentMapper.toEntity(dto, author, maintenanceRequest);
+        Comment comment = CommentMapper.toEntity(dto, author, maintenanceRequest);
 
         Comment savedComment = commentRepository.save(comment);
 
@@ -132,20 +131,17 @@ public class CommentService {
             CommentRequestDto dto,
             Long id) {
 
-        Comment comment = commentRepository.findById(id)
-                .orElseThrow(() ->
+        Comment comment = commentRepository.findById(id).orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "Comment not found with id: " + id
                         ));
 
-        User author = userRepository.findById(dto.getAuthorId())
-                .orElseThrow(() ->
+        User author = userRepository.findById(dto.getAuthorId()).orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "User not found with id: " + dto.getAuthorId()
                         ));
 
-        MaintenanceRequest maintenanceRequest =
-                maintenanceRequestRepository
+        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository
                         .findById(dto.getMaintenanceRequestId())
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(

@@ -11,6 +11,7 @@ import com.maintenance.fixFlow.repository.RatingRepository;
 import com.maintenance.fixFlow.repository.UserRepository;
 import com.maintenance.fixFlow.repository.MaintenanceRequestRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,6 +37,7 @@ public class RatingService {
         this.assignmentRepository = assignmentRepository;
     }
 
+    @Transactional
     public RatingResponseDto createRating(RatingRequestDto dto) {
 
         MaintenanceRequest maintenanceRequest = maintenanceRequestRepository
@@ -46,15 +48,13 @@ public class RatingService {
                                                 + dto.getMaintenanceRequestId()
                                 ));
 
-        User vendor = userRepository.findById(dto.getVendorId())
-                        .orElseThrow(() ->
+        User vendor = userRepository.findById(dto.getVendorId()).orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "User not found with id: "
                                                 + dto.getVendorId()
                                 ));
 
-        User tenant = userRepository.findById(dto.getTenantId())
-                        .orElseThrow(() ->
+        User tenant = userRepository.findById(dto.getTenantId()).orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "User not found with id: "
                                                 + dto.getTenantId()
@@ -116,8 +116,7 @@ public class RatingService {
 
     public RatingResponseDto getRatingById(Long id) {
 
-        Rating rating = ratingRepository.findById(id)
-                        .orElseThrow(() ->
+        Rating rating = ratingRepository.findById(id).orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "Rating not found with id: " + id
                                 ));
@@ -127,11 +126,9 @@ public class RatingService {
 
     public List<RatingResponseDto> getAllRatings() {
 
-        List<Rating> list =
-                ratingRepository.findAll();
+        List<Rating> list = ratingRepository.findAll();
 
-        List<RatingResponseDto> res =
-                new ArrayList<>();
+        List<RatingResponseDto> res = new ArrayList<>();
 
         for (Rating rating : list) {
             res.add(RatingMapper.toResponseDto(rating));
@@ -181,8 +178,7 @@ public class RatingService {
 
     public String deleteRating(Long id) {
 
-        Rating rating =
-                ratingRepository.findById(id)
+        Rating rating = ratingRepository.findById(id)
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "Rating not found with id: " + id
@@ -196,8 +192,7 @@ public class RatingService {
     public Optional<RatingResponseDto> getRatingByMaintenanceRequestId(
             Long maintenanceRequestId) {
 
-        Optional<Rating> rating =
-                ratingRepository.findByMaintenanceRequestId(
+        Optional<Rating> rating = ratingRepository.findByMaintenanceRequestId(
                         maintenanceRequestId);
 
         if (rating.isPresent()) {
@@ -211,8 +206,7 @@ public class RatingService {
     public List<RatingResponseDto> getRatingsByVendorId(
             Long vendorId) {
 
-        List<Rating> list =
-                ratingRepository.findByVendorId(vendorId);
+        List<Rating> list = ratingRepository.findByVendorId(vendorId);
 
         List<RatingResponseDto> res =
                 new ArrayList<>();
@@ -227,8 +221,7 @@ public class RatingService {
     public List<RatingResponseDto> getRatingsByTenantId(
             Long tenantId) {
 
-        List<Rating> list =
-                ratingRepository.findByTenantId(tenantId);
+        List<Rating> list = ratingRepository.findByTenantId(tenantId);
 
         List<RatingResponseDto> res =
                 new ArrayList<>();
