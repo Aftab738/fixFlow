@@ -2,6 +2,7 @@ package com.maintenance.fixFlow.service;
 
 import com.maintenance.fixFlow.dto.RatingRequestDto;
 import com.maintenance.fixFlow.dto.RatingResponseDto;
+import com.maintenance.fixFlow.dto.RatingUpdateDto;
 import com.maintenance.fixFlow.entity.*;
 import com.maintenance.fixFlow.exception.BusinessException;
 import com.maintenance.fixFlow.exception.ResourceNotFoundException;
@@ -138,7 +139,7 @@ public class RatingService {
     }
 
     public RatingResponseDto updateRating(
-            RatingRequestDto dto,
+            RatingUpdateDto dto,
             Long id) {
 
         Rating rating = ratingRepository.findById(id).orElseThrow(() ->
@@ -146,29 +147,8 @@ public class RatingService {
                                         "Rating not found with id: " + id
                                 ));
 
-        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(dto.getMaintenanceRequestId()).orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Maintenance request not found with id: "
-                                                + dto.getMaintenanceRequestId()
-                                ));
-
-        User vendor = userRepository.findById(dto.getVendorId()).orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "User not found with id: "
-                                                + dto.getVendorId()
-                                ));
-
-        User tenant = userRepository.findById(dto.getTenantId()).orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "User not found with id: "
-                                                + dto.getTenantId()
-                                ));
-
         rating.setScore(dto.getScore());
         rating.setComment(dto.getComment());
-        rating.setMaintenanceRequest(maintenanceRequest);
-        rating.setVendor(vendor);
-        rating.setTenant(tenant);
 
         Rating savedRating =
                 ratingRepository.save(rating);

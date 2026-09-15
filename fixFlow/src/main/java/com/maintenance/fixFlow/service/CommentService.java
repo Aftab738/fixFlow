@@ -4,6 +4,7 @@ import com.maintenance.fixFlow.dto.CommentRequestDto;
 import com.maintenance.fixFlow.dto.CommentResponseDto;
 import com.maintenance.fixFlow.dto.NotificationRequestDto;
 import com.maintenance.fixFlow.entity.*;
+import com.maintenance.fixFlow.exception.BusinessException;
 import com.maintenance.fixFlow.exception.ResourceNotFoundException;
 import com.maintenance.fixFlow.mapper.CommentMapper;
 import com.maintenance.fixFlow.repository.AssignmentRepository;
@@ -52,6 +53,36 @@ public class CommentService {
                                         "Maintenance request not found with id: "
                                                 + dto.getMaintenanceRequestId()
                                 ));
+
+        if(author.getRole()==Role.TENANT && !author.getId().equals(maintenanceRequest.getReportedBy().getId())){
+            throw new BusinessException("Tenant can comment only on their own maintenance requests");
+        }
+
+        if (author.getRole() == Role.VENDOR) {
+
+            List<Assignment> assignments =
+                    assignmentRepository.findByMaintenanceRequestId(
+                            maintenanceRequest.getId());
+
+            boolean assigned = false;
+
+            for (Assignment a : assignments) {
+
+                if (a.getVendor().getId().equals(author.getId())
+                        && (a.getStatus() == AssignmentStatus.ACCEPTED
+                        || a.getStatus() == AssignmentStatus.PENDING)) {
+
+                    assigned = true;
+                    break;
+                }
+            }
+
+            if (!assigned) {
+                throw new BusinessException(
+                        "Vendor can comment only on maintenance requests assigned to them"
+                );
+            }
+        }
 
         Comment comment = CommentMapper.toEntity(dto, author, maintenanceRequest);
 

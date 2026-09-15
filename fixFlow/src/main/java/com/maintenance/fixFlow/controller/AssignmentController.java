@@ -2,6 +2,7 @@ package com.maintenance.fixFlow.controller;
 
 import com.maintenance.fixFlow.dto.AssignmentRequestDto;
 import com.maintenance.fixFlow.dto.AssignmentResponseDto;
+import com.maintenance.fixFlow.dto.AssignmentUpdateDto;
 import com.maintenance.fixFlow.entity.AssignmentStatus;
 import com.maintenance.fixFlow.service.AssignmentService;
 import jakarta.validation.Valid;
@@ -37,7 +38,7 @@ public class AssignmentController {
 
     @PutMapping("/{id}")
     public AssignmentResponseDto update(
-            @Valid @RequestBody AssignmentRequestDto dto,
+            @Valid @RequestBody AssignmentUpdateDto dto,
             @PathVariable Long id) {
         return assignmentService.updateAssignment(dto, id);
     }

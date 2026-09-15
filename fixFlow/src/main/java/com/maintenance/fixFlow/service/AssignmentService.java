@@ -2,6 +2,7 @@ package com.maintenance.fixFlow.service;
 
 import com.maintenance.fixFlow.dto.AssignmentRequestDto;
 import com.maintenance.fixFlow.dto.AssignmentResponseDto;
+import com.maintenance.fixFlow.dto.AssignmentUpdateDto;
 import com.maintenance.fixFlow.dto.NotificationRequestDto;
 import com.maintenance.fixFlow.entity.*;
 import com.maintenance.fixFlow.exception.BusinessException;
@@ -41,13 +42,39 @@ public class AssignmentService {
     public AssignmentResponseDto createAssignment(
             AssignmentRequestDto dto) {
 
-        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository
-                        .findById(dto.getMaintenanceRequestId())
+        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(dto.getMaintenanceRequestId())
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "Maintenance request not found with id: "
                                                 + dto.getMaintenanceRequestId()
                                 ));
+
+        if (maintenanceRequest.getStatus() == MaintenanceStatus.COMPLETED ||
+                maintenanceRequest.getStatus() == MaintenanceStatus.CANCELLED ||
+                maintenanceRequest.getStatus() == MaintenanceStatus.REJECTED) {
+
+            throw new BusinessException("Cannot assign vendor to a "
+                            + maintenanceRequest.getStatus()
+                            + " maintenance request"
+            );
+        }
+
+
+        List<Assignment> assignments =
+                assignmentRepository.findByMaintenanceRequestId(
+                        maintenanceRequest.getId());
+
+        for (Assignment a : assignments) {
+
+            if (a.getStatus() == AssignmentStatus.PENDING ||
+                    a.getStatus() == AssignmentStatus.ACCEPTED) {
+
+                throw new BusinessException(
+                        "Maintenance request already has an active assignment"
+                );
+            }
+        }
+
 
         User vendor = userRepository.findById(dto.getVendorId())
                         .orElseThrow(() ->
@@ -108,7 +135,7 @@ public class AssignmentService {
     }
     @Transactional
     public AssignmentResponseDto updateAssignment(
-            AssignmentRequestDto dto,
+            AssignmentUpdateDto dto,
             Long id) {
 
         Assignment assignment = assignmentRepository.findById(id)
@@ -117,20 +144,7 @@ public class AssignmentService {
                                         "Assignment not found with id: " + id
                                 ));
 
-        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository
-                        .findById(dto.getMaintenanceRequestId())
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Maintenance request not found with id: "
-                                                + dto.getMaintenanceRequestId()
-                                ));
-
-        User vendor = userRepository.findById(dto.getVendorId())
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "User not found with id: "
-                                                + dto.getVendorId()
-                                ));
+        MaintenanceRequest maintenanceRequest =assignment.getMaintenanceRequest();
 
         //Checking Assignment status Transition before update.
         AssignmentStatus oldStatus = assignment.getStatus();
@@ -143,8 +157,6 @@ public class AssignmentService {
             );
         }
 
-        assignment.setMaintenanceRequest(maintenanceRequest);
-        assignment.setVendor(vendor);
         assignment.setAssignedAt(dto.getAssignedAt());
         assignment.setRespondedAt(dto.getRespondedAt());
         assignment.setNotes(dto.getNotes());

@@ -51,6 +51,13 @@ public class WorkUpdateService {
                                                 + dto.getMaintenanceRequestId()
                                 ));
 
+        if(maintenanceRequest.getStatus()==MaintenanceStatus.COMPLETED
+            || maintenanceRequest.getStatus()==MaintenanceStatus.CANCELLED
+            || maintenanceRequest.getStatus()==MaintenanceStatus.REJECTED){
+
+            throw new BusinessException("The maintenance request has already been "+maintenanceRequest.getStatus());
+        }
+
         User vendor = userRepository.findById(dto.getVendorId()).orElseThrow(() ->new ResourceNotFoundException(
                                         "User not found with id: "
                                                 + dto.getVendorId()

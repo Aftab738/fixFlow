@@ -2,6 +2,7 @@ package com.maintenance.fixFlow.controller;
 
 import com.maintenance.fixFlow.dto.RatingRequestDto;
 import com.maintenance.fixFlow.dto.RatingResponseDto;
+import com.maintenance.fixFlow.dto.RatingUpdateDto;
 import com.maintenance.fixFlow.service.RatingService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -37,7 +38,7 @@ public class RatingController {
 
     @PutMapping("/{id}")
     public RatingResponseDto update(
-            @Valid @RequestBody RatingRequestDto dto,
+            @Valid @RequestBody RatingUpdateDto dto,
             @PathVariable Long id) {
         return ratingService.updateRating(dto, id);
     }
