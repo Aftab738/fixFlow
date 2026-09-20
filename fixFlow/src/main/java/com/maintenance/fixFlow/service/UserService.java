@@ -7,6 +7,7 @@ import com.maintenance.fixFlow.exception.ResourceNotFoundException;
 import com.maintenance.fixFlow.mapper.UserMapper;
 import com.maintenance.fixFlow.repository.UnitRepository;
 import com.maintenance.fixFlow.repository.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -17,10 +18,12 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UnitRepository unitRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository, UnitRepository unitRepository){
+    public UserService(UserRepository userRepository, UnitRepository unitRepository, PasswordEncoder passwordEncoder){
         this.userRepository=userRepository;
         this.unitRepository = unitRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public UserResponseDto createUser(UserRequestDto dto) {
@@ -32,6 +35,8 @@ public class UserService {
                 );
 
         User user = UserMapper.toEntity(dto, unit);
+
+        user.setPassword(passwordEncoder.encode(dto.getPassword()));
         User savedUser = userRepository.save(user);
 
         return UserMapper.toResponseDto(savedUser);

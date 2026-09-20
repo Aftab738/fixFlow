@@ -23,6 +23,9 @@ public class UserRequestDto {
     @Email(message = "Invalid Email")
     private String email;
 
+    @NotBlank(message = "Enter the password")
+    private String password;
+
     @NotBlank(message = "Enter Phone no")
     @Size(min = 10, max = 15, message = "Phone number must be between 10 and 15 digits")
     private String phone;
