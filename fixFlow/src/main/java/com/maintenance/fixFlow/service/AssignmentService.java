@@ -11,9 +11,10 @@ import com.maintenance.fixFlow.mapper.AssignmentMapper;
 import com.maintenance.fixFlow.repository.AssignmentRepository;
 import com.maintenance.fixFlow.repository.MaintenanceRequestRepository;
 import com.maintenance.fixFlow.repository.UserRepository;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
@@ -143,6 +144,41 @@ public class AssignmentService {
                                 new ResourceNotFoundException(
                                         "Assignment not found with id: " + id
                                 ));
+
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+        String email=authentication.getName();
+
+        boolean manager = false;
+        boolean vendor = false;
+
+        for (var a : authentication.getAuthorities()) {
+
+            if (a.getAuthority().equals("ROLE_MANAGER")) {
+                manager = true;
+            }
+
+            if (a.getAuthority().equals("ROLE_VENDOR")) {
+                vendor = true;
+            }
+        }
+
+        if (!manager && !vendor) {
+            throw new AccessDeniedException(
+                    "You are not allowed to modify this assignment"
+            );
+        }
+
+        if (vendor) { //if the user is a vendor,allow the update of Assignment if only if the assignment belongs to that user
+
+            String vendorEmail = assignment.getVendor().getEmail();
+
+            if (!email.equals(vendorEmail)) {
+                throw new AccessDeniedException(
+                        "You are not allowed to modify this assignment"
+                );
+            }
+        }
 
         MaintenanceRequest maintenanceRequest =assignment.getMaintenanceRequest();
 

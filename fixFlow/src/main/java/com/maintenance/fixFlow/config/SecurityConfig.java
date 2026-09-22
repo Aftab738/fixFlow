@@ -43,6 +43,9 @@ public class SecurityConfig {
                                         "/api/users").permitAll()
 
                                 // Property
+                                .requestMatchers(HttpMethod.GET, "/api/property/**")
+                                .hasAnyRole("TENANT", "VENDOR", "MANAGER")
+
                                 .requestMatchers(HttpMethod.POST, "/api/property/**")
                                 .hasRole("MANAGER")
 
@@ -53,6 +56,9 @@ public class SecurityConfig {
                                 .hasRole("MANAGER")
 
                                 // Unit
+                                .requestMatchers(HttpMethod.GET, "/api/unit/**")
+                                .hasAnyRole("TENANT", "VENDOR", "MANAGER")
+
                                 .requestMatchers(HttpMethod.POST, "/api/unit/**")
                                 .hasRole("MANAGER")
 
@@ -60,6 +66,13 @@ public class SecurityConfig {
                                 .hasRole("MANAGER")
 
                                 .requestMatchers(HttpMethod.DELETE, "/api/unit/**")
+                                .hasRole("MANAGER")
+
+                                // Assignment
+                                .requestMatchers(HttpMethod.POST, "/api/assignment/**")
+                                .hasRole("MANAGER")
+
+                                .requestMatchers(HttpMethod.DELETE, "/api/assignment/**")
                                 .hasRole("MANAGER")
 
                                 // other all requests requires login
