@@ -69,6 +69,9 @@ public class SecurityConfig {
                                 .hasRole("MANAGER")
 
                                 // Assignment
+                                .requestMatchers(HttpMethod.GET, "/api/assignment/getAll")
+                                .hasRole("MANAGER")
+
                                 .requestMatchers(HttpMethod.POST, "/api/assignment/**")
                                 .hasRole("MANAGER")
 

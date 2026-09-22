@@ -13,11 +13,13 @@ import com.maintenance.fixFlow.repository.MaintenanceRequestRepository;
 import com.maintenance.fixFlow.repository.UserRepository;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 @Service
@@ -112,21 +114,57 @@ public class AssignmentService {
     public AssignmentResponseDto getAssignmentById(Long id) {
 
         Assignment assignment = assignmentRepository.findById(id)
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
+                        .orElseThrow(() -> new ResourceNotFoundException(
                                         "Assignment not found with id: " + id
                                 ));
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        String email = authentication.getName();
+
+        boolean manager = false;
+        boolean vendor = false;
+        boolean tenant = false;
+
+        for(var a :authentication.getAuthorities()){
+            if (a.getAuthority().equals("ROLE_MANAGER")) {
+                manager = true;
+            } else if (a.getAuthority().equals("ROLE_VENDOR")) {
+                vendor = true;
+            } else if (a.getAuthority().equals("ROLE_TENANT")) {
+                tenant = true;
+            }
+        }
+
+        if (manager) {
+            return AssignmentMapper.toResponseDto(assignment);
+        }
+
+        if (vendor) {
+            if (!email.equals(assignment.getVendor().getEmail())) {
+                throw new AccessDeniedException(
+                        "You are not allowed to view this assignment"
+                );
+            }
+        }
+
+        if (tenant) {
+            if (!email.equals(assignment.getMaintenanceRequest().getReportedBy().getEmail())) {
+
+                throw new AccessDeniedException(
+                        "You are not allowed to view this assignment"
+                );
+            }
+        }
 
         return AssignmentMapper.toResponseDto(assignment);
     }
 
     public List<AssignmentResponseDto> getAllAssignments() {
 
-        List<Assignment> list =
-                assignmentRepository.findAll();
+        List<Assignment> list = assignmentRepository.findAll();
 
-        List<AssignmentResponseDto> res =
-                new ArrayList<>();
+        List<AssignmentResponseDto> res = new ArrayList<>();
 
         for (Assignment assignment : list) {
             res.add(AssignmentMapper.toResponseDto(assignment));
@@ -265,8 +303,48 @@ public class AssignmentService {
     public List<AssignmentResponseDto> getAssignmentsByMaintenanceRequestId(
             Long maintenanceRequestId) {
 
-        List<Assignment> list = assignmentRepository
-                        .findByMaintenanceRequestId(maintenanceRequestId);
+        MaintenanceRequest maintenanceRequest=maintenanceRequestRepository.findById(maintenanceRequestId)
+                .orElseThrow(
+                        ()-> new ResourceNotFoundException("Maintenance request not found")
+                );
+
+        Authentication authentication=SecurityContextHolder.getContext().getAuthentication();
+        String email=authentication.getName();
+
+        boolean vendor = false;
+        boolean tenant=false;
+
+        for(var a:authentication.getAuthorities()){
+            if(a.getAuthority().equals("ROLE_VENDOR")){
+                vendor=true;
+            }
+            else if(a.getAuthority().equals("ROLE_TENANT")){
+                tenant=true;
+            }
+        }
+
+        if(tenant){
+            if(!maintenanceRequest.getReportedBy().getEmail().equals(email)){
+                throw new AccessDeniedException("You are not allowed to view this assignment");
+            }
+        }
+
+        List<Assignment> list = assignmentRepository.findByMaintenanceRequestId(maintenanceRequestId);
+
+        if (vendor) {
+            boolean allowed = false;
+            for (Assignment assignment : list) {
+                if (assignment.getVendor().getEmail().equals(email)) {
+                    allowed = true;
+                    break;
+                }
+            }
+            if (!allowed) {
+                throw new AccessDeniedException(
+                        "You are not allowed to view this assignment"
+                );
+            }
+        }
 
         List<AssignmentResponseDto> res = new ArrayList<>();
 
@@ -279,6 +357,41 @@ public class AssignmentService {
 
     public List<AssignmentResponseDto> getAssignmentsByVendorId(
             Long vendorId) {
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+
+        boolean manager = false;
+        boolean vendor = false;
+
+        for (var a : authentication.getAuthorities()) {
+            if (a.getAuthority().equals("ROLE_MANAGER")) {
+                manager = true;
+            }
+            else if (a.getAuthority().equals("ROLE_VENDOR")) {
+                vendor = true;
+            }
+        }
+
+        if (!manager && !vendor) {
+            throw new AccessDeniedException(
+                    "You are not allowed to view vendor assignments"
+            );
+        }
+
+        if (vendor) {
+            User user = userRepository.findByEmail(email).orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "User not found with email: " + email
+                            ));
+
+            if (!user.getId().equals(vendorId)) {
+                throw new AccessDeniedException(
+                        "You are not allowed to view these assignments"
+                );
+            }
+        }
+
 
         List<Assignment> list = assignmentRepository.findByVendorId(vendorId);
 
@@ -294,23 +407,84 @@ public class AssignmentService {
     public List<AssignmentResponseDto> getAssignmentsByStatus(
             AssignmentStatus status) {
 
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        String email = authentication.getName();
+
+        boolean vendor = false;
+        boolean tenant = false;
+
+        for (var a : authentication.getAuthorities()) {
+            if (a.getAuthority().equals("ROLE_VENDOR")) {
+                vendor = true;
+            } else if (a.getAuthority().equals("ROLE_TENANT")) {
+                tenant = true;
+            }
+        }
+
+        if (tenant) {
+            throw new AccessDeniedException(
+                    "You are not allowed to view these assignments"
+            );
+        }
+
         List<Assignment> list = assignmentRepository.findByStatus(status);
 
         List<AssignmentResponseDto> res = new ArrayList<>();
 
         for (Assignment assignment : list) {
-            res.add(AssignmentMapper.toResponseDto(assignment));
+            if (vendor) {
+                if (assignment.getVendor().getEmail().equals(email)) { //vendor gets only their assignment with that status
+                    res.add(AssignmentMapper.toResponseDto(assignment));
+                }
+            } else {
+                // Manager
+                res.add(AssignmentMapper.toResponseDto(assignment));
+            }
         }
 
         return res;
     }
 
-    public List<AssignmentResponseDto> getAssignmentsByVendorIdAndStatus(
-            Long vendorId,
-            AssignmentStatus status) {
+    public List<AssignmentResponseDto> getAssignmentsByVendorIdAndStatus(Long vendorId, AssignmentStatus status) {
 
-        List<Assignment> list = assignmentRepository
-                        .findByVendorIdAndStatus(vendorId, status);
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        String email = authentication.getName();
+
+        boolean vendor = false;
+        boolean tenant = false;
+
+        for (var a : authentication.getAuthorities()) {
+             if (a.getAuthority().equals("ROLE_VENDOR")) {
+                vendor = true;
+            }
+             else if (a.getAuthority().equals("ROLE_TENANT")) {
+                tenant = true;
+            }
+        }
+
+        if (tenant) {
+            throw new AccessDeniedException(
+                    "You are not allowed to view these assignments"
+            );
+        }
+
+        if (vendor) {
+            User user = userRepository.findByEmail(email).orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "User not found with email: " + email
+                            ));
+
+            if (!user.getId().equals(vendorId)) {
+                throw new AccessDeniedException(
+                        "You are not allowed to view these assignments"
+                );
+            }
+        }
+
+        List<Assignment> list = assignmentRepository.findByVendorIdAndStatus(vendorId, status);
 
         List<AssignmentResponseDto> res = new ArrayList<>();
 
