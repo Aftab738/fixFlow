@@ -78,6 +78,13 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.DELETE, "/api/assignment/**")
                                 .hasRole("MANAGER")
 
+                                //Maintenance Request
+                                .requestMatchers(
+                                        HttpMethod.GET,
+                                        "/api/maintenanceRequest/getAll"
+                                )
+                                .hasRole("MANAGER")
+
                                 // other all requests requires login
                                 .anyRequest().authenticated()
                         )

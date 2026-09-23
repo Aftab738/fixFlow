@@ -44,8 +44,8 @@ public class MaintenanceRequestController {
     }
 
     @DeleteMapping("/{id}")
-    public String deleteById(@PathVariable Long id){
-        return maintenanceRequestService.deleteMaintenanceRequest(id);
+    public void deleteById(@PathVariable Long id){
+         maintenanceRequestService.deleteMaintenanceRequest(id);
     }
 
     @GetMapping("/status/{status}")

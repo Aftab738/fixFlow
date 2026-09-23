@@ -6,9 +6,13 @@ import com.maintenance.fixFlow.entity.*;
 import com.maintenance.fixFlow.exception.BusinessException;
 import com.maintenance.fixFlow.exception.ResourceNotFoundException;
 import com.maintenance.fixFlow.mapper.MaintenanceRequestMapper;
+import com.maintenance.fixFlow.repository.AssignmentRepository;
 import com.maintenance.fixFlow.repository.MaintenanceRequestRepository;
 import com.maintenance.fixFlow.repository.UnitRepository;
 import com.maintenance.fixFlow.repository.UserRepository;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -20,57 +24,143 @@ public class MaintenanceRequestService {
     private final MaintenanceRequestRepository maintenanceRequestRepository;
     private final UserRepository userRepository;
     private final UnitRepository unitRepository;
+    private final AssignmentRepository assignmentRepository;
 
     public MaintenanceRequestService(
             MaintenanceRequestRepository maintenanceRequestRepository,
             UserRepository userRepository,
-            UnitRepository unitRepository) {
+            UnitRepository unitRepository, AssignmentRepository assignmentRepository) {
 
         this.maintenanceRequestRepository = maintenanceRequestRepository;
         this.userRepository = userRepository;
         this.unitRepository = unitRepository;
+        this.assignmentRepository = assignmentRepository;
     }
 
     public MaintenanceRequestResponseDto createMaintenanceRequest(
             MaintenanceRequestRequestDto dto) {
 
-        Unit unit = unitRepository.findById(dto.getUnitId())
-                .orElseThrow(() ->
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        String email = authentication.getName();
+
+        boolean manager = false;
+        boolean tenant = false;
+
+        for (var a : authentication.getAuthorities()) {
+            if (a.getAuthority().equals("ROLE_MANAGER")) {
+                manager = true;
+            }
+            else if (a.getAuthority().equals("ROLE_TENANT")) {
+                tenant = true;
+            }
+        }
+
+        Unit unit = unitRepository.findById(dto.getUnitId()).orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "Unit not found with id: " + dto.getUnitId()
                         ));
 
-        User user = userRepository.findById(dto.getReportedById())
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "User not found with id: " + dto.getReportedById()
-                        ));
+        User user;
+        if (tenant) {
+            user = userRepository.findByEmail(email).orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "User not found with email: " + email
+                            ));
 
-        MaintenanceRequest maintenanceRequest =
-                MaintenanceRequestMapper.toEntity(dto, user, unit);
+            if (!user.getId().equals(dto.getReportedById())) {
+                throw new AccessDeniedException(
+                        "You can create a Maintenance Request only for yourself"
+                );
+            }
+            if (!user.getUnit().getId().equals(dto.getUnitId())) {
+                throw new AccessDeniedException(
+                        "You can create a Maintenance Request only for your unit"
+                );
+            }
 
-        MaintenanceRequest mr =
-                maintenanceRequestRepository.save(maintenanceRequest);
+        }
+        else if (manager) {
+            user = userRepository.findById(dto.getReportedById()).orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "User not found with id: "
+                                            + dto.getReportedById()
+                            ));
+        }
+        else {
+            throw new AccessDeniedException(
+                    "You are not allowed to create a Maintenance Request"
+            );
+        }
+
+        MaintenanceRequest maintenanceRequest = MaintenanceRequestMapper.toEntity(dto, user, unit);
+
+        MaintenanceRequest mr = maintenanceRequestRepository.save(maintenanceRequest);
 
         return MaintenanceRequestMapper.toResponseDto(mr);
     }
 
     public MaintenanceRequestResponseDto getMaintenanceRequestById(Long id) {
 
-        MaintenanceRequest maintenanceRequest =
-                maintenanceRequestRepository.findById(id)
+        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.findById(id)
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "Maintenance request not found with id: " + id
                                 ));
+        Authentication authentication= SecurityContextHolder.getContext().getAuthentication();
+        String email=authentication.getName();
+
+        boolean manager=false;
+        boolean tenant=false;
+        boolean vendor=false;
+
+        for (var a : authentication.getAuthorities()) {
+            if (a.getAuthority().equals("ROLE_MANAGER")) {
+                manager = true;
+            }
+            else if (a.getAuthority().equals("ROLE_TENANT")) {
+                tenant = true;
+            }
+            else if (a.getAuthority().equals("ROLE_VENDOR")) {
+                vendor = true;
+            }
+        }
+
+        if(manager){
+            return MaintenanceRequestMapper.toResponseDto(maintenanceRequest);
+        }
+
+        if(tenant){
+            if(!maintenanceRequest.getReportedBy().getEmail().equals(email)){
+                throw new AccessDeniedException("You are not allowed to view this Maintenance Request");
+            }
+        }
+
+        if (vendor) {
+            List<Assignment> assignments = assignmentRepository.findByMaintenanceRequestId(id);
+
+            boolean allowed = false;
+
+            for (Assignment assignment : assignments) {
+                if (assignment.getVendor().getEmail().equals(email)) {
+                    allowed = true;
+                    break;
+                }
+            }
+
+            if (!allowed) {
+                throw new AccessDeniedException(
+                        "You are not allowed to view this Maintenance Request"
+                );
+            }
+        }
 
         return MaintenanceRequestMapper.toResponseDto(maintenanceRequest);
     }
 
     public List<MaintenanceRequestResponseDto> getAllRequests() {
 
-        List<MaintenanceRequest> list =
-                maintenanceRequestRepository.findAll();
+        List<MaintenanceRequest> list = maintenanceRequestRepository.findAll();
 
         List<MaintenanceRequestResponseDto> res =
                 new ArrayList<>();
@@ -85,41 +175,78 @@ public class MaintenanceRequestService {
     public MaintenanceRequestResponseDto updateMaintenanceRequest(
             MaintenanceRequestRequestDto dto, Long id) {
 
-        MaintenanceRequest mr =
-                maintenanceRequestRepository.findById(id)
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Maintenance request not found with id: " + id
-                                ));
-
-        User user = userRepository.findById(dto.getReportedById())
-                .orElseThrow(() ->
+        MaintenanceRequest mr = maintenanceRequestRepository.findById(id).orElseThrow(() ->
                         new ResourceNotFoundException(
-                                "User not found with id: " + dto.getReportedById()
+                                "Maintenance request not found with id: " + id
                         ));
 
-        Unit unit = unitRepository.findById(dto.getUnitId())
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Unit not found with id: " + dto.getUnitId()
-                        ));
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        mr.setUnit(unit);
-        mr.setCategory(dto.getCategory());
-        mr.setDescription(dto.getDescription());
-        mr.setPriority(dto.getPriority());
-        mr.setTitle(dto.getTitle());
-        mr.setReportedBy(user);
+        String email = authentication.getName();
 
-        //Check if the status transition is valid or not
-        MaintenanceStatus oldStatus=mr.getStatus();
-        MaintenanceStatus newStatus=dto.getStatus();
+        boolean manager = false;
+        boolean tenant = false;
 
-        if(!isValidStatusTransition(oldStatus,newStatus)){
-            throw new BusinessException("Invalid status transition:"+oldStatus+" "+"to "+ newStatus);
+        for (var a : authentication.getAuthorities()) {
+            if (a.getAuthority().equals("ROLE_MANAGER")) {
+                manager = true;
+            }
+            else if (a.getAuthority().equals("ROLE_TENANT")) {
+                tenant = true;
+            }
         }
 
-        mr.setStatus(newStatus);
+        if (tenant) {
+            if (!mr.getReportedBy().getEmail().equals(email)) {
+                throw new AccessDeniedException(
+                        "You are not allowed to update this Maintenance Request"
+                );
+            }
+
+            mr.setCategory(dto.getCategory());
+            mr.setDescription(dto.getDescription());
+            mr.setPriority(dto.getPriority());
+            mr.setTitle(dto.getTitle());
+
+        }
+        else if (manager) {
+            User user = userRepository.findById(dto.getReportedById()).orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "User not found with id: "
+                                            + dto.getReportedById()
+                            ));
+
+            Unit unit = unitRepository.findById(dto.getUnitId()).orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "Unit not found with id: "
+                                            + dto.getUnitId()
+                            ));
+
+            mr.setUnit(unit);
+            mr.setCategory(dto.getCategory());
+            mr.setDescription(dto.getDescription());
+            mr.setPriority(dto.getPriority());
+            mr.setTitle(dto.getTitle());
+            mr.setReportedBy(user);
+
+            MaintenanceStatus oldStatus = mr.getStatus();
+            MaintenanceStatus newStatus = dto.getStatus();
+
+            if (!isValidStatusTransition(oldStatus, newStatus)) {
+                throw new BusinessException(
+                        "Invalid status transition: "
+                                + oldStatus + " to " + newStatus
+                );
+            }
+
+            mr.setStatus(newStatus);
+
+        }
+        else {
+            throw new AccessDeniedException(
+                    "You are not allowed to update this Maintenance Request"
+            );
+        }
 
         MaintenanceRequest maintenanceRequest =
                 maintenanceRequestRepository.save(mr);
@@ -127,97 +254,301 @@ public class MaintenanceRequestService {
         return MaintenanceRequestMapper.toResponseDto(maintenanceRequest);
     }
 
-    public String deleteMaintenanceRequest(Long id) {
+    public void deleteMaintenanceRequest(Long id) {
 
-        MaintenanceRequest maintenanceReq =
-                maintenanceRequestRepository.findById(id)
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Maintenance request not found with id: " + id
-                                ));
+        MaintenanceRequest mr = maintenanceRequestRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Maintenance request not found with id: " + id
+                        ));
 
-        maintenanceRequestRepository.delete(maintenanceReq);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        return "Deleted";
+        String email = authentication.getName();
+
+        boolean manager = false;
+        boolean tenant = false;
+
+        for (var a : authentication.getAuthorities()) {
+            if (a.getAuthority().equals("ROLE_MANAGER")) {
+                manager = true;
+            }
+            else if (a.getAuthority().equals("ROLE_TENANT")) {
+                tenant = true;
+            }
+        }
+
+        if (tenant) {
+            if (!mr.getReportedBy().getEmail().equals(email)) {
+                throw new AccessDeniedException(
+                        "You are not allowed to delete this Maintenance Request"
+                );
+            }
+
+        }
+        else if (!manager) {
+            throw new AccessDeniedException(
+                    "You are not allowed to delete this Maintenance Request"
+            );
+        }
+
+        maintenanceRequestRepository.delete(mr);
     }
 
     public List<MaintenanceRequestResponseDto> getMaintenanceRequestsByStatus(
             MaintenanceStatus status) {
 
-        List<MaintenanceRequest> list =
-                maintenanceRequestRepository.findByStatus(status);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        List<MaintenanceRequestResponseDto> res =
-                new ArrayList<>();
+        String email = authentication.getName();
 
-        for (MaintenanceRequest m : list) {
-            res.add(MaintenanceRequestMapper.toResponseDto(m));
+        boolean vendor = false;
+        boolean tenant = false;
+
+        for (var a : authentication.getAuthorities()) {
+            if (a.getAuthority().equals("ROLE_VENDOR")) {
+                vendor = true;
+            }
+            else if (a.getAuthority().equals("ROLE_TENANT")) {
+                tenant = true;
+            }
         }
 
+        List<MaintenanceRequest> list = maintenanceRequestRepository.findByStatus(status);
+
+        List<MaintenanceRequestResponseDto> res = new ArrayList<>();
+
+        for (MaintenanceRequest request : list) {
+            if (tenant) {
+
+                if (request.getReportedBy().getEmail().equals(email)) {
+                    res.add(MaintenanceRequestMapper.toResponseDto(request));
+                }
+
+            }
+            else if (vendor) {
+                List<Assignment> assignments =
+                        assignmentRepository.findByMaintenanceRequestId(
+                                request.getId()
+                        );
+
+                for (Assignment assignment : assignments) {
+
+                    if (assignment.getVendor().getEmail().equals(email)) {
+                        res.add(MaintenanceRequestMapper.toResponseDto(request));
+                        break;
+                    }
+                }
+            }
+            else {
+                // Manager
+                res.add(MaintenanceRequestMapper.toResponseDto(request));
+            }
+        }
         return res;
     }
 
     public List<MaintenanceRequestResponseDto> getMaintenanceRequestsByPriority(
             MaintenancePriority priority) {
 
-        List<MaintenanceRequest> list =
-                maintenanceRequestRepository.findByPriority(priority);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        List<MaintenanceRequestResponseDto> res =
-                new ArrayList<>();
+        String email = authentication.getName();
 
-        for (MaintenanceRequest m : list) {
-            res.add(MaintenanceRequestMapper.toResponseDto(m));
+        boolean vendor = false;
+        boolean tenant = false;
+
+        for (var a : authentication.getAuthorities()) {
+            if (a.getAuthority().equals("ROLE_VENDOR")) {
+                vendor = true;
+            }
+            else if (a.getAuthority().equals("ROLE_TENANT")) {
+                tenant = true;
+            }
         }
 
+        List<MaintenanceRequest> list = maintenanceRequestRepository.findByPriority(priority);
+
+        List<MaintenanceRequestResponseDto> res = new ArrayList<>();
+
+        for (MaintenanceRequest request : list) {
+            if (tenant) {
+                if (request.getReportedBy().getEmail().equals(email)) {
+                    res.add(MaintenanceRequestMapper.toResponseDto(request));
+                }
+
+            }
+            else if (vendor) {
+                List<Assignment> assignments =
+                        assignmentRepository.findByMaintenanceRequestId(
+                                request.getId()
+                        );
+
+                for (Assignment assignment : assignments) {
+
+                    if (assignment.getVendor().getEmail().equals(email)) {
+                        res.add(MaintenanceRequestMapper.toResponseDto(request));
+                        break;
+                    }
+                }
+
+            }
+            else {
+                // Manager
+                res.add(MaintenanceRequestMapper.toResponseDto(request));
+            }
+        }
         return res;
     }
 
     public List<MaintenanceRequestResponseDto> getMaintenanceRequestsByCategory(
             MaintenanceCategory category) {
 
-        List<MaintenanceRequest> list =
-                maintenanceRequestRepository.findByCategory(category);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        List<MaintenanceRequestResponseDto> res =
-                new ArrayList<>();
+        String email = authentication.getName();
 
-        for (MaintenanceRequest m : list) {
-            res.add(MaintenanceRequestMapper.toResponseDto(m));
+        boolean vendor = false;
+        boolean tenant = false;
+
+        for (var a : authentication.getAuthorities()) {
+            if (a.getAuthority().equals("ROLE_VENDOR")) {
+                vendor = true;
+            }
+            else if (a.getAuthority().equals("ROLE_TENANT")) {
+                tenant = true;
+            }
         }
 
+        List<MaintenanceRequest> list = maintenanceRequestRepository.findByCategory(category);
+
+        List<MaintenanceRequestResponseDto> res = new ArrayList<>();
+
+        for (MaintenanceRequest request : list) {
+            if (tenant) {
+                if (request.getReportedBy().getEmail().equals(email)) {
+                    res.add(MaintenanceRequestMapper.toResponseDto(request));
+                }
+
+            }
+            else if (vendor) {
+                List<Assignment> assignments = assignmentRepository.findByMaintenanceRequestId(
+                                request.getId()
+                        );
+
+                for (Assignment assignment : assignments) {
+                    if (assignment.getVendor().getEmail().equals(email)) {
+                        res.add(MaintenanceRequestMapper.toResponseDto(request));
+                        break;
+                    }
+                }
+
+            }
+            else {
+                // Manager
+                res.add(MaintenanceRequestMapper.toResponseDto(request));
+            }
+        }
         return res;
     }
 
     public List<MaintenanceRequestResponseDto> getMaintenanceRequestsByUnitId(
             Long unitId) {
 
-        List<MaintenanceRequest> list =
-                maintenanceRequestRepository.findByUnitId(unitId);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        List<MaintenanceRequestResponseDto> res =
-                new ArrayList<>();
+        String email = authentication.getName();
 
-        for (MaintenanceRequest m : list) {
-            res.add(MaintenanceRequestMapper.toResponseDto(m));
+        boolean vendor = false;
+        boolean tenant = false;
+
+        for (var a : authentication.getAuthorities()) {
+            if (a.getAuthority().equals("ROLE_VENDOR")) {
+                vendor = true;
+            }
+            else if (a.getAuthority().equals("ROLE_TENANT")) {
+                tenant = true;
+            }
         }
 
+        List<MaintenanceRequest> list = maintenanceRequestRepository.findByUnitId(unitId);
+
+        List<MaintenanceRequestResponseDto> res = new ArrayList<>();
+
+        for (MaintenanceRequest request : list) {
+            if (tenant) {
+                if (request.getReportedBy().getEmail().equals(email)) {
+                    res.add(MaintenanceRequestMapper.toResponseDto(request));
+                }
+
+            }
+            else if (vendor) {
+
+                List<Assignment> assignments =
+                        assignmentRepository.findByMaintenanceRequestId(
+                                request.getId()
+                        );
+
+                for (Assignment assignment : assignments) {
+                    if (assignment.getVendor().getEmail().equals(email)) {
+                        res.add(MaintenanceRequestMapper.toResponseDto(request));
+                        break;
+                    }
+                }
+            }
+            else {
+                // Manager
+                res.add(MaintenanceRequestMapper.toResponseDto(request));
+            }
+        }
         return res;
     }
 
     public List<MaintenanceRequestResponseDto> getMaintenanceRequestsByReportedById(
             Long userId) {
 
-        List<MaintenanceRequest> list =
-                maintenanceRequestRepository.findByReportedById(userId);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        List<MaintenanceRequestResponseDto> res =
-                new ArrayList<>();
+        String email = authentication.getName();
+
+        boolean manager = false;
+        boolean tenant = false;
+
+        for (var a : authentication.getAuthorities()) {
+            if (a.getAuthority().equals("ROLE_MANAGER")) {
+                manager = true;
+            }
+            else if (a.getAuthority().equals("ROLE_TENANT")) {
+                tenant = true;
+            }
+        }
+
+        if (tenant) {
+            User user = userRepository.findByEmail(email).orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "User not found with email: " + email
+                            ));
+
+            if (!user.getId().equals(userId)) {
+                throw new AccessDeniedException(
+                        "You are not allowed to view these Maintenance Requests"
+                );
+            }
+        }
+
+        if (!manager && !tenant) {
+            throw new AccessDeniedException(
+                    "You are not allowed to view Maintenance Requests by user"
+            );
+        }
+
+        List<MaintenanceRequest> list = maintenanceRequestRepository.findByReportedById(userId);
+
+        List<MaintenanceRequestResponseDto> res = new ArrayList<>();
 
         for (MaintenanceRequest m : list) {
             res.add(MaintenanceRequestMapper.toResponseDto(m));
         }
-
         return res;
     }
 
