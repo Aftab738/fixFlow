@@ -85,6 +85,11 @@ public class SecurityConfig {
                                 )
                                 .hasRole("MANAGER")
 
+                                //Attachment
+                                .requestMatchers(HttpMethod.GET,
+                                        "/api/attachment/getAll")
+                                .hasRole("MANAGER")
+
                                 // other all requests requires login
                                 .anyRequest().authenticated()
                         )

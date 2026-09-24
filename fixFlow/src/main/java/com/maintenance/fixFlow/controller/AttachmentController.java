@@ -42,8 +42,8 @@ public class AttachmentController {
     }
 
     @DeleteMapping("/{id}")
-    public String deleteById(@PathVariable Long id) {
-        return attachmentService.deleteAttachment(id);
+    public void deleteById(@PathVariable Long id) {
+         attachmentService.deleteAttachment(id);
     }
 
     @GetMapping("/maintenanceRequestId/{maintenanceRequestId}")
