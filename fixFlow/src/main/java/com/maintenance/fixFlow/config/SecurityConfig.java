@@ -90,6 +90,11 @@ public class SecurityConfig {
                                         "/api/attachment/getAll")
                                 .hasRole("MANAGER")
 
+                                //Comment
+                                .requestMatchers(HttpMethod.GET, "/api/comment/getAll"
+                                )
+                                .hasRole("MANAGER")
+
                                 // other all requests requires login
                                 .anyRequest().authenticated()
                         )
