@@ -100,6 +100,10 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/api/notification/getAll")
                                 .hasRole("MANAGER")
 
+                                //Rating
+                                .requestMatchers(HttpMethod.GET, "/api/rating/getAll")
+                                .hasRole("MANAGER")
+
                                 // other all requests requires login
                                 .anyRequest().authenticated()
                         )
