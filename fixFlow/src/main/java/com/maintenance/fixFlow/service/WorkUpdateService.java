@@ -11,6 +11,9 @@ import com.maintenance.fixFlow.repository.AssignmentRepository;
 import com.maintenance.fixFlow.repository.MaintenanceRequestRepository;
 import com.maintenance.fixFlow.repository.UserRepository;
 import com.maintenance.fixFlow.repository.WorkUpdateRepository;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,51 +54,94 @@ public class WorkUpdateService {
                                                 + dto.getMaintenanceRequestId()
                                 ));
 
-        if(maintenanceRequest.getStatus()==MaintenanceStatus.COMPLETED
-            || maintenanceRequest.getStatus()==MaintenanceStatus.CANCELLED
-            || maintenanceRequest.getStatus()==MaintenanceStatus.REJECTED){
+        if (maintenanceRequest.getStatus() == MaintenanceStatus.COMPLETED
+                || maintenanceRequest.getStatus() == MaintenanceStatus.CANCELLED
+                || maintenanceRequest.getStatus() == MaintenanceStatus.REJECTED) {
 
-            throw new BusinessException("The maintenance request has already been "+maintenanceRequest.getStatus());
+            throw new BusinessException(
+                    "The maintenance request has already been "
+                            + maintenanceRequest.getStatus()
+            );
         }
 
-        User vendor = userRepository.findById(dto.getVendorId()).orElseThrow(() ->new ResourceNotFoundException(
-                                        "User not found with id: "
-                                                + dto.getVendorId()
-                                ));
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        List<Assignment> assignments = assignmentRepository.findByMaintenanceRequestId(
-                        maintenanceRequest.getId());
+        String email = authentication.getName();
 
-        boolean assigned = false;
+        boolean manager = false;
+        boolean vendorRole = false;
 
-        for (Assignment a : assignments) {
-
-            if (a.getVendor().getId().equals(vendor.getId()) &&
-                    (a.getStatus() == AssignmentStatus.PENDING ||
-                            a.getStatus() == AssignmentStatus.ACCEPTED)) {
-
-                assigned = true;
-                break;
+        for (var a : authentication.getAuthorities()) {
+            if (a.getAuthority().equals("ROLE_MANAGER")) {
+                manager = true;
+            }
+            else if (a.getAuthority().equals("ROLE_VENDOR")) {
+                vendorRole = true;
             }
         }
 
-        if (!assigned) {
-            throw new BusinessException(
-                    "Vendor is not assigned to this maintenance request"
+        User vendor;
+
+        if (vendorRole) {
+            vendor = userRepository.findByEmail(email)
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "User not found with email: " + email
+                            ));
+
+            List<Assignment> assignments =
+                    assignmentRepository.findByMaintenanceRequestId(
+                            maintenanceRequest.getId()
+                    );
+
+            boolean assigned = false;
+
+            for (Assignment a : assignments) {
+                if (a.getVendor().getId().equals(vendor.getId())
+                        && (a.getStatus() == AssignmentStatus.PENDING
+                        || a.getStatus() == AssignmentStatus.ACCEPTED)) {
+
+                    assigned = true;
+                    break;
+                }
+            }
+
+            if (!assigned) {
+                throw new AccessDeniedException(
+                        "Vendor is not assigned to this maintenance request"
+                );
+            }
+
+        }
+        else if (manager) {
+            vendor = userRepository.findById(dto.getVendorId())
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "User not found with id: "
+                                            + dto.getVendorId()
+                            ));
+
+        }
+        else {
+            throw new AccessDeniedException(
+                    "You are not allowed to create a Work Update"
             );
         }
 
         WorkUpdate workUpdate = WorkUpdateMapper.toEntity(
                         dto,
                         maintenanceRequest,
-                        vendor);
+                        vendor
+                );
 
         WorkUpdate savedWorkUpdate = workUpdateRepository.save(workUpdate);
 
         User tenant = maintenanceRequest.getReportedBy();
 
         NotificationRequestDto n = new NotificationRequestDto();
-        n.setMessage("New work update added to your maintenance request.");
+        n.setMessage(
+                "New work update added to your maintenance request."
+        );
         n.setType(NotificationType.WORK_UPDATE);
         n.setRead(false);
         n.setUserId(tenant.getId());
@@ -107,23 +153,47 @@ public class WorkUpdateService {
 
     public WorkUpdateResponseDto getWorkUpdateById(Long id) {
 
-        WorkUpdate workUpdate =
-                workUpdateRepository.findById(id)
-                        .orElseThrow(() ->
+        WorkUpdate workUpdate = workUpdateRepository.findById(id).orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "Work update not found with id: " + id
                                 ));
+
+        Authentication authentication=SecurityContextHolder.getContext().getAuthentication();
+        String email=authentication.getName();
+
+        boolean manager=false;
+        boolean vendorRole=false;
+
+        for(var a:authentication.getAuthorities()){
+            if(a.getAuthority().equals("ROLE_MANAGER")){
+                manager=true;
+            }
+            else if(a.getAuthority().equals("ROLE_VENDOR")){
+                vendorRole=true;
+            }
+        }
+
+        User vendor=workUpdate.getVendor();
+        if(vendorRole){
+            if(!vendor.getEmail().equals(email)){
+                throw new AccessDeniedException("You are not allowed to view this Work Update.");
+            }
+        }
+        else if(manager){
+            return WorkUpdateMapper.toResponseDto(workUpdate);
+        }
+        else {
+            throw new AccessDeniedException("You are not allowed to view this Work Update.");
+        }
 
         return WorkUpdateMapper.toResponseDto(workUpdate);
     }
 
     public List<WorkUpdateResponseDto> getAllWorkUpdates() {
 
-        List<WorkUpdate> list =
-                workUpdateRepository.findAll();
+        List<WorkUpdate> list = workUpdateRepository.findAll();
 
-        List<WorkUpdateResponseDto> res =
-                new ArrayList<>();
+        List<WorkUpdateResponseDto> res = new ArrayList<>();
 
         for (WorkUpdate workUpdate : list) {
             res.add(WorkUpdateMapper.toResponseDto(workUpdate));
@@ -136,49 +206,64 @@ public class WorkUpdateService {
             WorkUpdateRequestDto dto,
             Long id) {
 
-        WorkUpdate workUpdate =
-                workUpdateRepository.findById(id)
-                        .orElseThrow(() ->
+        WorkUpdate workUpdate = workUpdateRepository.findById(id).orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "Work update not found with id: " + id
                                 ));
 
-        MaintenanceRequest maintenanceRequest =
-                maintenanceRequestRepository
-                        .findById(dto.getMaintenanceRequestId())
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Maintenance request not found with id: "
-                                                + dto.getMaintenanceRequestId()
-                                ));
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        User vendor =
-                userRepository
-                        .findById(dto.getVendorId())
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "User not found with id: "
-                                                + dto.getVendorId()
-                                ));
+        String email = authentication.getName();
+
+        boolean manager = false;
+        for (var a : authentication.getAuthorities()) {
+            if (a.getAuthority().equals("ROLE_MANAGER")) {
+                manager = true;
+            }
+        }
+
+        if (!manager) {
+            if (!workUpdate.getVendor().getEmail().equals(email)) {
+                throw new AccessDeniedException(
+                        "You are not allowed to update this Work Update."
+                );
+            }
+        }
 
         workUpdate.setMessage(dto.getMessage());
-        workUpdate.setMaintenanceRequest(maintenanceRequest);
-        workUpdate.setVendor(vendor);
 
-        WorkUpdate savedWorkUpdate =
-                workUpdateRepository.save(workUpdate);
+        WorkUpdate savedWorkUpdate = workUpdateRepository.save(workUpdate);
 
         return WorkUpdateMapper.toResponseDto(savedWorkUpdate);
     }
 
     public String deleteWorkUpdate(Long id) {
 
-        WorkUpdate workUpdate =
-                workUpdateRepository.findById(id)
+        WorkUpdate workUpdate = workUpdateRepository.findById(id)
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "Work update not found with id: " + id
                                 ));
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        String email = authentication.getName();
+
+        boolean manager = false;
+
+        for (var a : authentication.getAuthorities()) {
+            if (a.getAuthority().equals("ROLE_MANAGER")) {
+                manager = true;
+            }
+        }
+
+        if (!manager) {
+            if (!workUpdate.getVendor().getEmail().equals(email)) {
+                throw new AccessDeniedException(
+                        "You are not allowed to delete this Work Update."
+                );
+            }
+        }
 
         workUpdateRepository.delete(workUpdate);
 
@@ -188,12 +273,73 @@ public class WorkUpdateService {
     public List<WorkUpdateResponseDto> getWorkUpdatesByMaintenanceRequestId(
             Long maintenanceRequestId) {
 
-        List<WorkUpdate> list =
-                workUpdateRepository
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        String email = authentication.getName();
+
+        boolean vendor = false;
+        boolean tenant = false;
+        boolean manager = false;
+
+        for (var a : authentication.getAuthorities()) {
+            if (a.getAuthority().equals("ROLE_VENDOR")) {
+                vendor = true;
+            }
+            else if (a.getAuthority().equals("ROLE_TENANT")) {
+                tenant = true;
+            }
+            else if (a.getAuthority().equals("ROLE_MANAGER")) {
+                manager = true;
+            }
+        }
+
+        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository
+                        .findById(maintenanceRequestId)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Maintenance request not found with id: "
+                                                + maintenanceRequestId
+                                ));
+
+        if (tenant) {
+            if (!maintenanceRequest.getReportedBy()
+                    .getEmail().equals(email)) {
+
+                throw new AccessDeniedException(
+                        "You are not allowed to view these Work Updates."
+                );
+            }
+        }
+        else if (vendor) {
+            List<Assignment> assignments = assignmentRepository.findByMaintenanceRequestId(
+                            maintenanceRequestId
+                    );
+
+            boolean allowed = false;
+
+            for (var a : assignments) {
+                if (a.getVendor().getEmail().equals(email)) {
+                    allowed = true;
+                    break;
+                }
+            }
+
+            if (!allowed) {
+                throw new AccessDeniedException(
+                        "You are not allowed to view these Work Updates."
+                );
+            }
+        }
+        else if (!manager) {
+            throw new AccessDeniedException(
+                    "You are not allowed to view these Work Updates."
+            );
+        }
+
+        List<WorkUpdate> list = workUpdateRepository
                         .findByMaintenanceRequestId(maintenanceRequestId);
 
-        List<WorkUpdateResponseDto> res =
-                new ArrayList<>();
+        List<WorkUpdateResponseDto> res = new ArrayList<>();
 
         for (WorkUpdate workUpdate : list) {
             res.add(WorkUpdateMapper.toResponseDto(workUpdate));
@@ -205,8 +351,41 @@ public class WorkUpdateService {
     public List<WorkUpdateResponseDto> getWorkUpdatesByVendorId(
             Long vendorId) {
 
-        List<WorkUpdate> list =
-                workUpdateRepository.findByVendorId(vendorId);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        String email = authentication.getName();
+
+        boolean manager = false;
+        boolean vendorRole = false;
+
+        for (var a : authentication.getAuthorities()) {
+            if (a.getAuthority().equals("ROLE_MANAGER")) {
+                manager = true;
+            }
+            else if (a.getAuthority().equals("ROLE_VENDOR")) {
+                vendorRole = true;
+            }
+        }
+
+        if (vendorRole) {
+            User vendor = userRepository.findByEmail(email).orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "User not found with email: " + email
+                            ));
+
+            if (!vendor.getId().equals(vendorId)) {
+                throw new AccessDeniedException(
+                        "You are not allowed to view these Work Updates."
+                );
+            }
+        }
+        else if (!manager) {
+            throw new AccessDeniedException(
+                    "You are not allowed to view these Work Updates."
+            );
+        }
+
+        List<WorkUpdate> list = workUpdateRepository.findByVendorId(vendorId);
 
         List<WorkUpdateResponseDto> res =
                 new ArrayList<>();

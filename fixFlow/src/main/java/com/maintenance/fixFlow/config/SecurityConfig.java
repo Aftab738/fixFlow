@@ -79,20 +79,21 @@ public class SecurityConfig {
                                 .hasRole("MANAGER")
 
                                 //Maintenance Request
-                                .requestMatchers(
-                                        HttpMethod.GET,
+                                .requestMatchers(HttpMethod.GET,
                                         "/api/maintenanceRequest/getAll"
                                 )
                                 .hasRole("MANAGER")
 
                                 //Attachment
-                                .requestMatchers(HttpMethod.GET,
-                                        "/api/attachment/getAll")
+                                .requestMatchers(HttpMethod.GET, "/api/attachment/getAll")
                                 .hasRole("MANAGER")
 
                                 //Comment
-                                .requestMatchers(HttpMethod.GET, "/api/comment/getAll"
-                                )
+                                .requestMatchers(HttpMethod.GET, "/api/comment/getAll")
+                                .hasRole("MANAGER")
+
+                                //workUpdate
+                                .requestMatchers(HttpMethod.GET, "/api/workUpdate/getAll")
                                 .hasRole("MANAGER")
 
                                 // other all requests requires login
