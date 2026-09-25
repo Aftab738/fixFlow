@@ -96,6 +96,10 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/api/workUpdate/getAll")
                                 .hasRole("MANAGER")
 
+                                //Notification
+                                .requestMatchers(HttpMethod.GET, "/api/notification/getAll")
+                                .hasRole("MANAGER")
+
                                 // other all requests requires login
                                 .anyRequest().authenticated()
                         )
