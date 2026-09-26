@@ -120,9 +120,14 @@ public class NotificationService {
             }
         }
 
-        notification.setMessage(dto.getMessage());
-        notification.setType(dto.getType());
-        notification.setRead(dto.isRead());
+        if (!manager) {
+            notification.setRead(dto.isRead());
+        }
+        else {
+            notification.setMessage(dto.getMessage());
+            notification.setType(dto.getType());
+            notification.setRead(dto.isRead());
+        }
 
         Notification savedNotification = notificationRepository.save(notification);
 

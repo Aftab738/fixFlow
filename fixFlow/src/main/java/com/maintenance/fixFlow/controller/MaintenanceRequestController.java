@@ -1,7 +1,6 @@
 package com.maintenance.fixFlow.controller;
 
-import com.maintenance.fixFlow.dto.MaintenanceRequestRequestDto;
-import com.maintenance.fixFlow.dto.MaintenanceRequestResponseDto;
+import com.maintenance.fixFlow.dto.*;
 import com.maintenance.fixFlow.entity.MaintenanceCategory;
 import com.maintenance.fixFlow.entity.MaintenancePriority;
 import com.maintenance.fixFlow.entity.MaintenanceStatus;
@@ -23,8 +22,14 @@ public class MaintenanceRequestController {
 
     @PostMapping
     public MaintenanceRequestResponseDto create
-            (@Valid @RequestBody MaintenanceRequestRequestDto dto){
+            (@Valid @RequestBody MaintenanceRequestCreateDto dto){
         return maintenanceRequestService.createMaintenanceRequest(dto);
+    }
+
+    @PostMapping("/admin")
+    public MaintenanceRequestResponseDto adminCreate(@Valid @RequestBody MaintenanceRequestAdminCreateDto dto) {
+
+        return maintenanceRequestService.adminCreateMaintenanceRequest(dto);
     }
 
     @GetMapping("/{id}")
@@ -38,9 +43,16 @@ public class MaintenanceRequestController {
     }
 
     @PutMapping("/{id}")
-    public MaintenanceRequestResponseDto update(@Valid @RequestBody MaintenanceRequestRequestDto dto,
+    public MaintenanceRequestResponseDto update(@Valid @RequestBody MaintenanceRequestUpdateDto dto,
                                                    @PathVariable Long id){
         return maintenanceRequestService.updateMaintenanceRequest(dto,id);
+    }
+
+    @PutMapping("/admin/{id}")
+    public MaintenanceRequestResponseDto adminUpdate(@Valid @RequestBody MaintenanceRequestAdminUpdateDto dto,
+            @PathVariable Long id) {
+
+        return maintenanceRequestService.adminUpdateMaintenanceRequest(dto, id);
     }
 
     @DeleteMapping("/{id}")

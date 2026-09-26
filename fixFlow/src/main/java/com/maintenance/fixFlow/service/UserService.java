@@ -1,7 +1,7 @@
 package com.maintenance.fixFlow.service;
 
-import com.maintenance.fixFlow.dto.UserRequestDto;
-import com.maintenance.fixFlow.dto.UserResponseDto;
+import com.maintenance.fixFlow.dto.*;
+import com.maintenance.fixFlow.entity.Role;
 import com.maintenance.fixFlow.entity.Unit;
 import com.maintenance.fixFlow.entity.User;
 import com.maintenance.fixFlow.exception.ResourceNotFoundException;
@@ -32,7 +32,7 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    public UserResponseDto createUser(UserRequestDto dto) {
+    public UserResponseDto createUser(UserRegistrationDto dto) {
 
         Unit unit = unitRepository.findById(dto.getUnitId())
                 .orElseThrow(() ->
@@ -40,6 +40,8 @@ public class UserService {
                 );
 
         User user = UserMapper.toEntity(dto, unit);
+
+        user.setRole(Role.TENANT); //public registration allows only tenant creation
 
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
 
@@ -113,41 +115,43 @@ public class UserService {
         return result;
     }
 
-    public UserResponseDto updateUser(UserRequestDto dto, Long id) {
+    public UserResponseDto updateUser(UserUpdateDto dto, Long id) {
 
         User user = userRepository.findById(id).orElseThrow(() ->
-                        new ResourceNotFoundException("User not found with id: " + id)
-                );
+                new ResourceNotFoundException("User not found with id: " + id)
+        );
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         String email = authentication.getName();
 
-        boolean manager = false;
-
-        for (var a : authentication.getAuthorities()) {
-            if (a.getAuthority().equals("ROLE_MANAGER")) {
-                manager = true;
-                break;
-            }
-        }
-
-        if (!manager && !user.getEmail().equals(email)) {
+        if (!user.getEmail().equals(email)) {
             throw new AccessDeniedException("You are not allowed to update this User.");
         }
 
+        user.setName(dto.getName());
+        user.setPhone(dto.getPhone());
+
+        User savedUser = userRepository.save(user);
+
+        return UserMapper.toResponseDto(savedUser);
+    }
+
+    public UserResponseDto adminUpdateUser(UserAdminUpdateDto dto, Long id) {
+
+        User user = userRepository.findById(id).orElseThrow(() ->
+                new ResourceNotFoundException("User not found with id: " + id)
+        );
+
         Unit unit = unitRepository.findById(dto.getUnitId()).orElseThrow(() ->
-                        new ResourceNotFoundException("Unit not found with id: " + dto.getUnitId())
-                );
+                new ResourceNotFoundException("Unit not found with id: " + dto.getUnitId())
+        );
 
         user.setName(dto.getName());
-        user.setUnit(unit);
-        user.setPhone(dto.getPhone());
         user.setEmail(dto.getEmail());
-
-        if (manager) {
-            user.setRole(dto.getRole());
-        }
+        user.setPhone(dto.getPhone());
+        user.setUnit(unit);
+        user.setRole(dto.getRole());
 
         User savedUser = userRepository.save(user);
 

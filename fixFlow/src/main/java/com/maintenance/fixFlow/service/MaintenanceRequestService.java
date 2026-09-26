@@ -1,7 +1,6 @@
 package com.maintenance.fixFlow.service;
 
-import com.maintenance.fixFlow.dto.MaintenanceRequestRequestDto;
-import com.maintenance.fixFlow.dto.MaintenanceRequestResponseDto;
+import com.maintenance.fixFlow.dto.*;
 import com.maintenance.fixFlow.entity.*;
 import com.maintenance.fixFlow.exception.BusinessException;
 import com.maintenance.fixFlow.exception.ResourceNotFoundException;
@@ -15,6 +14,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,58 +38,68 @@ public class MaintenanceRequestService {
     }
 
     public MaintenanceRequestResponseDto createMaintenanceRequest(
-            MaintenanceRequestRequestDto dto) {
+            MaintenanceRequestCreateDto dto) {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         String email = authentication.getName();
 
-        boolean manager = false;
         boolean tenant = false;
 
         for (var a : authentication.getAuthorities()) {
-            if (a.getAuthority().equals("ROLE_MANAGER")) {
-                manager = true;
-            }
-            else if (a.getAuthority().equals("ROLE_TENANT")) {
+            if (a.getAuthority().equals("ROLE_TENANT")) {
                 tenant = true;
+                break;
             }
         }
+        if (!tenant) {
+            throw new AccessDeniedException(
+                    "Only tenants can create a Maintenance Request"
+            );
+        }
+
+        User user = userRepository.findByEmail(email).orElseThrow(() ->
+                new ResourceNotFoundException(
+                        "User not found with email: " + email
+                ));
+
+        if (user.getUnit() == null) {
+            throw new BusinessException(
+                    "User is not assigned to a unit"
+            );
+        }
+
+        Unit unit = user.getUnit();
+
+        MaintenanceRequest maintenanceRequest = MaintenanceRequestMapper.toEntity(dto, user, unit);
+
+        MaintenanceRequest mr = maintenanceRequestRepository.save(maintenanceRequest);
+
+        return MaintenanceRequestMapper.toResponseDto(mr);
+    }
+
+    public MaintenanceRequestResponseDto adminCreateMaintenanceRequest(
+            MaintenanceRequestAdminCreateDto dto) {
+
+        User user = userRepository.findById(dto.getReportedById()).orElseThrow(() ->
+                new ResourceNotFoundException(
+                        "User not found with id: " + dto.getReportedById()
+                ));
 
         Unit unit = unitRepository.findById(dto.getUnitId()).orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Unit not found with id: " + dto.getUnitId()
-                        ));
+                new ResourceNotFoundException(
+                        "Unit not found with id: " + dto.getUnitId()
+                ));
 
-        User user;
-        if (tenant) {
-            user = userRepository.findByEmail(email).orElseThrow(() ->
-                            new ResourceNotFoundException(
-                                    "User not found with email: " + email
-                            ));
-
-            if (!user.getId().equals(dto.getReportedById())) {
-                throw new AccessDeniedException(
-                        "You can create a Maintenance Request only for yourself"
-                );
-            }
-            if (!user.getUnit().getId().equals(dto.getUnitId())) {
-                throw new AccessDeniedException(
-                        "You can create a Maintenance Request only for your unit"
-                );
-            }
-
+        if (user.getRole() != Role.TENANT) {
+            throw new BusinessException(
+                    "Selected user is not a tenant"
+            );
         }
-        else if (manager) {
-            user = userRepository.findById(dto.getReportedById()).orElseThrow(() ->
-                            new ResourceNotFoundException(
-                                    "User not found with id: "
-                                            + dto.getReportedById()
-                            ));
-        }
-        else {
-            throw new AccessDeniedException(
-                    "You are not allowed to create a Maintenance Request"
+
+        if (user.getUnit() == null || !user.getUnit().getId().equals(unit.getId())) {
+            throw new BusinessException(
+                    "User does not belong to the selected unit"
             );
         }
 
@@ -173,83 +183,104 @@ public class MaintenanceRequestService {
     }
 
     public MaintenanceRequestResponseDto updateMaintenanceRequest(
-            MaintenanceRequestRequestDto dto, Long id) {
+            MaintenanceRequestUpdateDto dto, Long id) {
 
         MaintenanceRequest mr = maintenanceRequestRepository.findById(id).orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Maintenance request not found with id: " + id
-                        ));
+                new ResourceNotFoundException(
+                        "Maintenance request not found with id: " + id
+                ));
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         String email = authentication.getName();
 
-        boolean manager = false;
         boolean tenant = false;
 
         for (var a : authentication.getAuthorities()) {
-            if (a.getAuthority().equals("ROLE_MANAGER")) {
-                manager = true;
-            }
-            else if (a.getAuthority().equals("ROLE_TENANT")) {
+            if (a.getAuthority().equals("ROLE_TENANT")) {
                 tenant = true;
+                break;
             }
         }
 
-        if (tenant) {
-            if (!mr.getReportedBy().getEmail().equals(email)) {
-                throw new AccessDeniedException(
-                        "You are not allowed to update this Maintenance Request"
-                );
-            }
-
-            mr.setCategory(dto.getCategory());
-            mr.setDescription(dto.getDescription());
-            mr.setPriority(dto.getPriority());
-            mr.setTitle(dto.getTitle());
-
+        if (!tenant) {
+            throw new AccessDeniedException(
+                    "Only tenants can update a Maintenance Request"
+            );
         }
-        else if (manager) {
-            User user = userRepository.findById(dto.getReportedById()).orElseThrow(() ->
-                            new ResourceNotFoundException(
-                                    "User not found with id: "
-                                            + dto.getReportedById()
-                            ));
 
-            Unit unit = unitRepository.findById(dto.getUnitId()).orElseThrow(() ->
-                            new ResourceNotFoundException(
-                                    "Unit not found with id: "
-                                            + dto.getUnitId()
-                            ));
-
-            mr.setUnit(unit);
-            mr.setCategory(dto.getCategory());
-            mr.setDescription(dto.getDescription());
-            mr.setPriority(dto.getPriority());
-            mr.setTitle(dto.getTitle());
-            mr.setReportedBy(user);
-
-            MaintenanceStatus oldStatus = mr.getStatus();
-            MaintenanceStatus newStatus = dto.getStatus();
-
-            if (!isValidStatusTransition(oldStatus, newStatus)) {
-                throw new BusinessException(
-                        "Invalid status transition: "
-                                + oldStatus + " to " + newStatus
-                );
-            }
-
-            mr.setStatus(newStatus);
-
-        }
-        else {
+        if (!mr.getReportedBy().getEmail().equals(email)) {
             throw new AccessDeniedException(
                     "You are not allowed to update this Maintenance Request"
             );
         }
 
-        MaintenanceRequest maintenanceRequest =
-                maintenanceRequestRepository.save(mr);
+        mr.setCategory(dto.getCategory());
+        mr.setDescription(dto.getDescription());
+        mr.setPriority(dto.getPriority());
+        mr.setTitle(dto.getTitle());
+
+        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.save(mr);
+
+        return MaintenanceRequestMapper.toResponseDto(maintenanceRequest);
+    }
+
+    public MaintenanceRequestResponseDto adminUpdateMaintenanceRequest(
+            MaintenanceRequestAdminUpdateDto dto, Long id) {
+
+        MaintenanceRequest mr = maintenanceRequestRepository.findById(id).orElseThrow(() ->
+                new ResourceNotFoundException(
+                        "Maintenance request not found with id: " + id
+                ));
+
+        User user = userRepository.findById(dto.getReportedById()).orElseThrow(() ->
+                new ResourceNotFoundException(
+                        "User not found with id: "
+                                + dto.getReportedById()
+                ));
+
+        Unit unit = unitRepository.findById(dto.getUnitId()).orElseThrow(() ->
+                new ResourceNotFoundException(
+                        "Unit not found with id: "
+                                + dto.getUnitId()
+                ));
+
+        if (user.getUnit() == null || !user.getUnit().getId().equals(unit.getId())) {
+            throw new BusinessException(
+                    "User does not belong to the selected unit"
+            );
+        }
+
+        if (user.getRole() != Role.TENANT) {
+            throw new BusinessException(
+                    "Selected user is not a tenant"
+            );
+        }
+
+        mr.setUnit(unit);
+        mr.setCategory(dto.getCategory());
+        mr.setDescription(dto.getDescription());
+        mr.setPriority(dto.getPriority());
+        mr.setTitle(dto.getTitle());
+        mr.setReportedBy(user);
+
+        MaintenanceStatus oldStatus = mr.getStatus();
+        MaintenanceStatus newStatus = dto.getStatus();
+
+        if (!isValidStatusTransition(oldStatus, newStatus)) {
+            throw new BusinessException(
+                    "Invalid status transition: "
+                            + oldStatus + " to " + newStatus
+            );
+        }
+
+        mr.setStatus(newStatus);
+
+        if (oldStatus == MaintenanceStatus.IN_PROGRESS && newStatus == MaintenanceStatus.COMPLETED) {
+            mr.setCompletedAt(LocalDateTime.now());
+        }
+
+        MaintenanceRequest maintenanceRequest = maintenanceRequestRepository.save(mr);
 
         return MaintenanceRequestMapper.toResponseDto(maintenanceRequest);
     }
@@ -552,32 +583,43 @@ public class MaintenanceRequestService {
         return res;
     }
 
-    private boolean isValidStatusTransition(MaintenanceStatus oldStatus,MaintenanceStatus newStatus){
+    private boolean isValidStatusTransition(MaintenanceStatus oldStatus, MaintenanceStatus newStatus) {
 
-        //Status Not Changed
-        if(oldStatus==newStatus) return true;
+        if (oldStatus == newStatus) return true;
 
-        if(oldStatus==MaintenanceStatus.SUBMITTED && newStatus==MaintenanceStatus.UNDER_REVIEW) return true;
+        if (oldStatus == MaintenanceStatus.SUBMITTED
+                && newStatus == MaintenanceStatus.UNDER_REVIEW) return true;
 
-        if(oldStatus==MaintenanceStatus.UNDER_REVIEW && newStatus==MaintenanceStatus.ASSIGNED) return true;
+        if (oldStatus == MaintenanceStatus.SUBMITTED
+                && newStatus == MaintenanceStatus.ASSIGNED) return true;
 
-        if(oldStatus==MaintenanceStatus.ASSIGNED && newStatus==MaintenanceStatus.IN_PROGRESS) return true;
+        if (oldStatus == MaintenanceStatus.UNDER_REVIEW
+                && newStatus == MaintenanceStatus.ASSIGNED) return true;
 
-        if(oldStatus==MaintenanceStatus.IN_PROGRESS && newStatus==MaintenanceStatus.COMPLETED) return true;
+        if (oldStatus == MaintenanceStatus.ASSIGNED
+                && newStatus == MaintenanceStatus.IN_PROGRESS) return true;
 
-        //Cancellation
-        if(oldStatus==MaintenanceStatus.SUBMITTED && newStatus==MaintenanceStatus.CANCELLED) return true;
+        if (oldStatus == MaintenanceStatus.IN_PROGRESS
+                && newStatus == MaintenanceStatus.COMPLETED) return true;
 
-        if(oldStatus==MaintenanceStatus.UNDER_REVIEW && newStatus==MaintenanceStatus.CANCELLED) return true;
+        if (oldStatus == MaintenanceStatus.SUBMITTED
+                && newStatus == MaintenanceStatus.CANCELLED) return true;
 
-        if(oldStatus==MaintenanceStatus.ASSIGNED && newStatus==MaintenanceStatus.CANCELLED) return true;
+        if (oldStatus == MaintenanceStatus.UNDER_REVIEW
+                && newStatus == MaintenanceStatus.CANCELLED) return true;
 
-        if(oldStatus==MaintenanceStatus.IN_PROGRESS && newStatus==MaintenanceStatus.CANCELLED) return true;
+        if (oldStatus == MaintenanceStatus.ASSIGNED
+                && newStatus == MaintenanceStatus.CANCELLED) return true;
 
-        //Rejection
-        if(oldStatus==MaintenanceStatus.UNDER_REVIEW && newStatus==MaintenanceStatus.REJECTED) return true;
+        if (oldStatus == MaintenanceStatus.IN_PROGRESS
+                && newStatus == MaintenanceStatus.CANCELLED) return true;
 
-        //Invalid status transition
+        if (oldStatus == MaintenanceStatus.UNDER_REVIEW
+                && newStatus == MaintenanceStatus.REJECTED) return true;
+
+        if (oldStatus == MaintenanceStatus.ASSIGNED
+                && newStatus == MaintenanceStatus.REJECTED) return true;
+
         return false;
     }
 }

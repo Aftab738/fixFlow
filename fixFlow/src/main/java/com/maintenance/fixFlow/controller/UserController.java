@@ -1,7 +1,6 @@
 package com.maintenance.fixFlow.controller;
 
-import com.maintenance.fixFlow.dto.UserRequestDto;
-import com.maintenance.fixFlow.dto.UserResponseDto;
+import com.maintenance.fixFlow.dto.*;
 import com.maintenance.fixFlow.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -19,7 +18,7 @@ public class UserController {
     }
 
     @PostMapping
-    public UserResponseDto createUser( @Valid @RequestBody UserRequestDto dto){
+    public UserResponseDto createUser( @Valid @RequestBody UserRegistrationDto dto){
         return userService.createUser(dto);
     }
 
@@ -39,9 +38,16 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    public UserResponseDto updateUser( @Valid @RequestBody UserRequestDto dto,
+    public UserResponseDto updateUser( @Valid @RequestBody UserUpdateDto dto,
                                       @PathVariable Long id){
         return userService.updateUser(dto,id);
+    }
+
+    @PutMapping("/admin/{id}")
+    public UserResponseDto adminUpdateUser(@Valid @RequestBody UserAdminUpdateDto dto,
+            @PathVariable Long id) {
+
+        return userService.adminUpdateUser(dto, id);
     }
 
     @DeleteMapping("/{id}")

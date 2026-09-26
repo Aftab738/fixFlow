@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
@@ -13,6 +14,7 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @Table(name = "work_updates")
+@EntityListeners(AuditingEntityListener.class)
 @Entity
 public class WorkUpdate {
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -121,11 +121,41 @@ public class WorkUpdateService {
                                             + dto.getVendorId()
                             ));
 
+            if (vendor.getRole() != Role.VENDOR) {
+                throw new BusinessException("Selected user is not a vendor");
+            }
+
+            List<Assignment> assignments = assignmentRepository.findByMaintenanceRequestId(
+                            maintenanceRequest.getId()
+                    );
+
+            boolean assigned = false;
+
+            for (Assignment a : assignments) {
+                if (a.getVendor().getId().equals(vendor.getId())
+                        && (a.getStatus() == AssignmentStatus.PENDING
+                        || a.getStatus() == AssignmentStatus.ACCEPTED)) {
+
+                    assigned = true;
+                    break;
+                }
+            }
+
+            if (!assigned) {
+                throw new BusinessException(
+                        "Vendor is not assigned to this maintenance request"
+                );
+            }
+
         }
         else {
             throw new AccessDeniedException(
                     "You are not allowed to create a Work Update"
             );
+        }
+
+        if (vendor.getRole() != Role.VENDOR) {
+            throw new BusinessException("Selected user is not a vendor");
         }
 
         WorkUpdate workUpdate = WorkUpdateMapper.toEntity(

@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
@@ -14,6 +15,7 @@ import java.time.LocalDateTime;
 @Getter
 @NoArgsConstructor
 @Table(name = "ratings")
+@EntityListeners(AuditingEntityListener.class)
 @Entity
 public class Rating {
     @GeneratedValue(strategy = GenerationType.IDENTITY)

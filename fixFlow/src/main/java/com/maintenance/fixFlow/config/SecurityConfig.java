@@ -38,9 +38,9 @@ public class SecurityConfig {
             HttpSecurity http) throws Exception {
 
                 http.csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(auth ->
-                        auth.requestMatchers("/auth/login",
-                                        "/api/users").permitAll()
+                .authorizeHttpRequests(auth ->auth
+                                .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
+                                .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
 
                                 // Property
                                 .requestMatchers(HttpMethod.GET, "/api/property/**")
@@ -84,6 +84,12 @@ public class SecurityConfig {
                                 )
                                 .hasRole("MANAGER")
 
+                                .requestMatchers(HttpMethod.POST, "/api/maintenanceRequest/admin")
+                                .hasRole("MANAGER")
+
+                                .requestMatchers(HttpMethod.PUT, "/api/maintenanceRequest/admin/**")
+                                .hasRole("MANAGER")
+
                                 //Attachment
                                 .requestMatchers(HttpMethod.GET, "/api/attachment/getAll")
                                 .hasRole("MANAGER")
@@ -100,12 +106,18 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/api/notification/getAll")
                                 .hasRole("MANAGER")
 
+                                .requestMatchers(HttpMethod.POST, "/api/notification/**")
+                                .hasRole("MANAGER")
+
                                 //Rating
                                 .requestMatchers(HttpMethod.GET, "/api/rating/getAll")
                                 .hasRole("MANAGER")
 
                                 //User
                                 .requestMatchers(HttpMethod.GET, "/api/users/getAll")
+                                .hasRole("MANAGER")
+
+                                .requestMatchers(HttpMethod.PUT, "/api/users/admin/**")
                                 .hasRole("MANAGER")
 
                                 // other all requests requires login

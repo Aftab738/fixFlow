@@ -17,6 +17,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -61,18 +62,13 @@ public class AssignmentService {
         }
 
 
-        List<Assignment> assignments =
-                assignmentRepository.findByMaintenanceRequestId(
+        List<Assignment> assignments = assignmentRepository.findByMaintenanceRequestId(
                         maintenanceRequest.getId());
 
         for (Assignment a : assignments) {
-
             if (a.getStatus() == AssignmentStatus.PENDING ||
                     a.getStatus() == AssignmentStatus.ACCEPTED) {
-
-                throw new BusinessException(
-                        "Maintenance request already has an active assignment"
-                );
+                throw new BusinessException("Maintenance request already has an active assignment");
             }
         }
 
@@ -84,12 +80,17 @@ public class AssignmentService {
                                                 + dto.getVendorId()
                                 ));
 
+        if (vendor.getRole() != Role.VENDOR) {
+            throw new BusinessException("Selected user is not a vendor");
+        }
+
         Assignment assignment = AssignmentMapper.toEntity(
                         dto,
                         maintenanceRequest,
                         vendor);
 
         assignment.setStatus(AssignmentStatus.PENDING); // New assignments always start as PENDING
+        assignment.setAssignedAt(LocalDateTime.now());
 
         Assignment savedAssignment = assignmentRepository.save(assignment);
 
@@ -170,26 +171,25 @@ public class AssignmentService {
 
         return res;
     }
+
     @Transactional
     public AssignmentResponseDto updateAssignment(
             AssignmentUpdateDto dto,
             Long id) {
 
         Assignment assignment = assignmentRepository.findById(id)
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Assignment not found with id: " + id
-                                ));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Assignment not found with id: " + id
+                        ));
 
-        Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email=authentication.getName();
 
         boolean manager = false;
         boolean vendor = false;
 
         for (var a : authentication.getAuthorities()) {
-
             if (a.getAuthority().equals("ROLE_MANAGER")) {
                 manager = true;
             }
@@ -206,7 +206,6 @@ public class AssignmentService {
         }
 
         if (vendor) { //if the user is a vendor,allow the update of Assignment if only if the assignment belongs to that user
-
             String vendorEmail = assignment.getVendor().getEmail();
 
             if (!email.equals(vendorEmail)) {
@@ -222,6 +221,16 @@ public class AssignmentService {
         AssignmentStatus oldStatus = assignment.getStatus();
         AssignmentStatus newStatus = dto.getStatus();
 
+        if ((newStatus == AssignmentStatus.ACCEPTED
+                || newStatus == AssignmentStatus.REJECTED
+                || newStatus == AssignmentStatus.COMPLETED)
+                && !vendor) {
+
+            throw new AccessDeniedException(
+                    "Only the assigned vendor can update this assignment status"
+            );
+        }
+
         if (!isValidStatusTransition(oldStatus, newStatus)) {
             throw new BusinessException(
                     "Invalid assignment status transition: "
@@ -229,8 +238,20 @@ public class AssignmentService {
             );
         }
 
-        assignment.setAssignedAt(dto.getAssignedAt());
-        assignment.setRespondedAt(dto.getRespondedAt());
+        if (oldStatus == AssignmentStatus.PENDING
+                && newStatus == AssignmentStatus.ACCEPTED) {
+
+            assignment.setStatus(AssignmentStatus.ACCEPTED);
+            assignment.setRespondedAt(LocalDateTime.now());
+        }
+
+        if (oldStatus == AssignmentStatus.PENDING
+                && newStatus == AssignmentStatus.REJECTED) {
+
+            assignment.setStatus(AssignmentStatus.REJECTED);
+            assignment.setRespondedAt(LocalDateTime.now());
+        }
+
         assignment.setNotes(dto.getNotes());
 
         assignment.setStatus(newStatus);
@@ -262,13 +283,19 @@ public class AssignmentService {
 
         //updating the maintenanceReq status according to the new Assignment Status
         if(newStatus==AssignmentStatus.ACCEPTED) maintenanceRequest.setStatus(MaintenanceStatus.IN_PROGRESS);
-        if(newStatus==AssignmentStatus.COMPLETED) maintenanceRequest.setStatus(MaintenanceStatus.COMPLETED);
+
+        if (newStatus == AssignmentStatus.COMPLETED) {
+            maintenanceRequest.setStatus(MaintenanceStatus.COMPLETED);
+            maintenanceRequest.setCompletedAt(LocalDateTime.now());
+        }
+
         if(newStatus==AssignmentStatus.REJECTED) maintenanceRequest.setStatus(MaintenanceStatus.REJECTED);
         if(newStatus==AssignmentStatus.CANCELLED) maintenanceRequest.setStatus(MaintenanceStatus.CANCELLED);
 
         maintenanceRequestRepository.save(maintenanceRequest);
 
-        if(newStatus==AssignmentStatus.COMPLETED){ //sends notification to the tenant when its Maintenance request is completed
+        if (oldStatus == AssignmentStatus.ACCEPTED &&
+                newStatus == AssignmentStatus.COMPLETED){ //sends notification to the tenant when its Maintenance request is completed
             NotificationRequestDto n=new NotificationRequestDto();
 
             n.setMessage("Your Maintenance request has been completed");
@@ -279,8 +306,7 @@ public class AssignmentService {
             notificationService.createNotification(n);
         }
 
-        Assignment savedAssignment =
-                assignmentRepository.save(assignment);
+        Assignment savedAssignment = assignmentRepository.save(assignment);
 
         return AssignmentMapper.toResponseDto(savedAssignment);
     }

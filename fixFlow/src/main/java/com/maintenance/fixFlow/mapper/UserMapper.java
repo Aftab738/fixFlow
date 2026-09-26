@@ -1,20 +1,19 @@
 package com.maintenance.fixFlow.mapper;
 
-import com.maintenance.fixFlow.dto.UserRequestDto;
+import com.maintenance.fixFlow.dto.UserRegistrationDto;
 import com.maintenance.fixFlow.dto.UserResponseDto;
 import com.maintenance.fixFlow.entity.Unit;
 import com.maintenance.fixFlow.entity.User;
 
 public class UserMapper {
 
-    public static User toEntity(UserRequestDto dto, Unit unit){
+    public static User toEntity(UserRegistrationDto dto, Unit unit){
         User user=new User();
 
         user.setEmail(dto.getEmail());
         user.setName(dto.getName());
         user.setPhone(dto.getPhone());
         user.setUnit(unit);
-        user.setRole(dto.getRole());
 
         return user;
     }

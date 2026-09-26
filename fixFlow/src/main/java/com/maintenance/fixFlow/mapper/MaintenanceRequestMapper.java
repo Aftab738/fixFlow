@@ -1,15 +1,17 @@
 package com.maintenance.fixFlow.mapper;
 
-import com.maintenance.fixFlow.dto.MaintenanceRequestRequestDto;
+import com.maintenance.fixFlow.dto.MaintenanceRequestAdminCreateDto;
+import com.maintenance.fixFlow.dto.MaintenanceRequestCreateDto;
 import com.maintenance.fixFlow.dto.MaintenanceRequestResponseDto;
 import com.maintenance.fixFlow.entity.MaintenanceRequest;
+import com.maintenance.fixFlow.entity.MaintenanceStatus;
 import com.maintenance.fixFlow.entity.Unit;
 import com.maintenance.fixFlow.entity.User;
 
 public class MaintenanceRequestMapper {
 
     public static MaintenanceRequest toEntity(
-            MaintenanceRequestRequestDto dto,
+            MaintenanceRequestCreateDto dto,
             User reportedBy,
             Unit unit) {
 
@@ -17,7 +19,25 @@ public class MaintenanceRequestMapper {
 
         request.setTitle(dto.getTitle());
         request.setDescription(dto.getDescription());
-        request.setStatus(dto.getStatus());
+        request.setStatus(MaintenanceStatus.SUBMITTED);
+        request.setPriority(dto.getPriority());
+        request.setCategory(dto.getCategory());
+        request.setReportedBy(reportedBy);
+        request.setUnit(unit);
+
+        return request;
+    }
+
+    public static MaintenanceRequest toEntity(
+            MaintenanceRequestAdminCreateDto dto,
+            User reportedBy,
+            Unit unit) {
+
+        MaintenanceRequest request = new MaintenanceRequest();
+
+        request.setTitle(dto.getTitle());
+        request.setDescription(dto.getDescription());
+        request.setStatus(MaintenanceStatus.SUBMITTED);
         request.setPriority(dto.getPriority());
         request.setCategory(dto.getCategory());
         request.setReportedBy(reportedBy);

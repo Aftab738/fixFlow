@@ -73,6 +73,9 @@ public class RatingService {
                                         "User not found with id: "
                                                 + dto.getVendorId()
                                 ));
+        if (vendor.getRole() != Role.VENDOR) {
+            throw new BusinessException("Selected user is not a vendor");
+        }
 
         User tenant;
 
@@ -115,7 +118,8 @@ public class RatingService {
         boolean assigned = false;
 
         for (Assignment a : assignments) {
-            if (a.getVendor().getId().equals(vendor.getId())) {
+            if (a.getVendor().getId().equals(vendor.getId())
+                    && a.getStatus() == AssignmentStatus.COMPLETED) {
                 assigned = true;
                 break;
             }

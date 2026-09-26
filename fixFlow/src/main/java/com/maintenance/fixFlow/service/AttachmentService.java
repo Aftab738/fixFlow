@@ -2,9 +2,8 @@ package com.maintenance.fixFlow.service;
 
 import com.maintenance.fixFlow.dto.AttachmentRequestDto;
 import com.maintenance.fixFlow.dto.AttachmentResponseDto;
-import com.maintenance.fixFlow.entity.Assignment;
-import com.maintenance.fixFlow.entity.Attachment;
-import com.maintenance.fixFlow.entity.MaintenanceRequest;
+import com.maintenance.fixFlow.entity.*;
+import com.maintenance.fixFlow.exception.BusinessException;
 import com.maintenance.fixFlow.exception.ResourceNotFoundException;
 import com.maintenance.fixFlow.mapper.AttachmentMapper;
 import com.maintenance.fixFlow.repository.AssignmentRepository;
@@ -42,6 +41,13 @@ public class AttachmentService {
                                 "Maintenance request not found with id:"+dto.getMaintenanceRequestId())
                         );
 
+        if (maintenanceRequest.getStatus() == MaintenanceStatus.COMPLETED
+                || maintenanceRequest.getStatus() == MaintenanceStatus.CANCELLED
+                || maintenanceRequest.getStatus() == MaintenanceStatus.REJECTED) {
+
+            throw new BusinessException("The maintenance request has already been " + maintenanceRequest.getStatus());
+        }
+
         Authentication authentication= SecurityContextHolder.getContext().getAuthentication();
         String email=authentication.getName();
 
@@ -72,7 +78,9 @@ public class AttachmentService {
 
             boolean allowed = false;
             for (Assignment as : assignments) {
-                if (as.getVendor().getEmail().equals(email)) {
+                if (as.getVendor().getEmail().equals(email)
+                        && (as.getStatus() == AssignmentStatus.PENDING
+                        || as.getStatus() == AssignmentStatus.ACCEPTED)) {
                     allowed = true;
                     break;
                 }
@@ -191,6 +199,15 @@ public class AttachmentService {
 
         MaintenanceRequest maintenanceRequest = attachment.getMaintenanceRequest();
 
+        if (maintenanceRequest.getStatus() == MaintenanceStatus.COMPLETED
+                || maintenanceRequest.getStatus() == MaintenanceStatus.CANCELLED
+                || maintenanceRequest.getStatus() == MaintenanceStatus.REJECTED) {
+
+            throw new BusinessException(
+                    "The maintenance request has already been " + maintenanceRequest.getStatus()
+            );
+        }
+
         if (tenant) {
             if (!maintenanceRequest.getReportedBy().getEmail().equals(email)) {
                 throw new AccessDeniedException(
@@ -207,7 +224,8 @@ public class AttachmentService {
             boolean allowed = false;
 
             for (var a : assignments) {
-                if (a.getVendor().getEmail().equals(email)) {
+                if (a.getVendor().getEmail().equals(email)
+                        && (a.getStatus() == AssignmentStatus.PENDING || a.getStatus() == AssignmentStatus.ACCEPTED)) {
                     allowed = true;
                     break;
                 }
@@ -266,6 +284,15 @@ public class AttachmentService {
 
         MaintenanceRequest maintenanceRequest = attachment.getMaintenanceRequest();
 
+        if (maintenanceRequest.getStatus() == MaintenanceStatus.COMPLETED
+                || maintenanceRequest.getStatus() == MaintenanceStatus.CANCELLED
+                || maintenanceRequest.getStatus() == MaintenanceStatus.REJECTED) {
+
+            throw new BusinessException(
+                    "The maintenance request has already been " + maintenanceRequest.getStatus()
+            );
+        }
+
         if (tenant) {
             if (!maintenanceRequest.getReportedBy().getEmail().equals(email)) {
                 throw new AccessDeniedException(
@@ -282,7 +309,8 @@ public class AttachmentService {
             boolean allowed = false;
 
             for (var a : assignments) {
-                if (a.getVendor().getEmail().equals(email)) {
+                if (a.getVendor().getEmail().equals(email)
+                        && (a.getStatus() == AssignmentStatus.PENDING || a.getStatus() == AssignmentStatus.ACCEPTED)) {
                     allowed = true;
                     break;
                 }
@@ -337,7 +365,8 @@ public class AttachmentService {
             List<Assignment> assignments=assignmentRepository.findByMaintenanceRequestId(maintenanceRequestId);
 
             for(var a:assignments){
-                if(a.getVendor().getEmail().equals(email)){
+                if (a.getVendor().getEmail().equals(email)
+                        && (a.getStatus() == AssignmentStatus.PENDING || a.getStatus() == AssignmentStatus.ACCEPTED)) {
                     allowed=true;
                     break;
                 }
