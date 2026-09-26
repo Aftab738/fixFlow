@@ -104,6 +104,10 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/api/rating/getAll")
                                 .hasRole("MANAGER")
 
+                                //User
+                                .requestMatchers(HttpMethod.GET, "/api/users/getAll")
+                                .hasRole("MANAGER")
+
                                 // other all requests requires login
                                 .anyRequest().authenticated()
                         )

@@ -1,4 +1,5 @@
 package com.maintenance.fixFlow.service;
+
 import com.maintenance.fixFlow.dto.UserRequestDto;
 import com.maintenance.fixFlow.dto.UserResponseDto;
 import com.maintenance.fixFlow.entity.Unit;
@@ -7,6 +8,9 @@ import com.maintenance.fixFlow.exception.ResourceNotFoundException;
 import com.maintenance.fixFlow.mapper.UserMapper;
 import com.maintenance.fixFlow.repository.UnitRepository;
 import com.maintenance.fixFlow.repository.UserRepository;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -20,37 +24,80 @@ public class UserService {
     private final UnitRepository unitRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository, UnitRepository unitRepository, PasswordEncoder passwordEncoder){
-        this.userRepository=userRepository;
+    public UserService(UserRepository userRepository,
+                       UnitRepository unitRepository,
+                       PasswordEncoder passwordEncoder) {
+        this.userRepository = userRepository;
         this.unitRepository = unitRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
     public UserResponseDto createUser(UserRequestDto dto) {
+
         Unit unit = unitRepository.findById(dto.getUnitId())
                 .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Unit not found with id: " + dto.getUnitId()
-                        )
+                        new ResourceNotFoundException("Unit not found with id: " + dto.getUnitId())
                 );
 
         User user = UserMapper.toEntity(dto, unit);
 
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
+
         User savedUser = userRepository.save(user);
 
         return UserMapper.toResponseDto(savedUser);
     }
 
-    public UserResponseDto getUserById(Long id){
-        User user=userRepository.findById(id)
-                .orElseThrow(()->new ResourceNotFoundException("User not found with id:"+id));
+    public UserResponseDto getUserById(Long id) {
+
+        User user = userRepository.findById(id).orElseThrow(() ->
+                        new ResourceNotFoundException("User not found with id: " + id)
+                );
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        String email = authentication.getName();
+
+        boolean manager = false;
+
+        for (var a : authentication.getAuthorities()) {
+            if (a.getAuthority().equals("ROLE_MANAGER")) {
+                manager = true;
+                break;
+            }
+        }
+
+        if (!manager && !user.getEmail().equals(email)) {
+            throw new AccessDeniedException("You are not allowed to view this User.");
+        }
+
         return UserMapper.toResponseDto(user);
     }
 
-    public UserResponseDto getUserByEmail(String email){
-        User user=userRepository.findByEmail(email)
-                .orElseThrow(()->new ResourceNotFoundException("User not found with email:"+email));
+    public UserResponseDto getUserByEmail(String email) {
+
+        User user = userRepository.findByEmail(email).orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "User not found with email: " + email
+                        )
+                );
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        String currentEmail = authentication.getName();
+
+        boolean manager = false;
+
+        for (var a : authentication.getAuthorities()) {
+            if (a.getAuthority().equals("ROLE_MANAGER")) {
+                manager = true;
+                break;
+            }
+        }
+        if (!manager && !email.equals(currentEmail)) {
+            throw new AccessDeniedException("You are not allowed to view this User.");
+        }
+
         return UserMapper.toResponseDto(user);
     }
 
@@ -67,37 +114,71 @@ public class UserService {
     }
 
     public UserResponseDto updateUser(UserRequestDto dto, Long id) {
-        User user=userRepository.findById(id)
-                .orElseThrow(()->new ResourceNotFoundException("User not found with id:"+id));
 
+        User user = userRepository.findById(id).orElseThrow(() ->
+                        new ResourceNotFoundException("User not found with id: " + id)
+                );
 
-            Unit unit = unitRepository.findById(dto.getUnitId())
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                        "Unit not found with id: " + dto.getUnitId()
-                )
-                    );
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-            user.setName(dto.getName());
-            user.setUnit(unit);
+        String email = authentication.getName();
+
+        boolean manager = false;
+
+        for (var a : authentication.getAuthorities()) {
+            if (a.getAuthority().equals("ROLE_MANAGER")) {
+                manager = true;
+                break;
+            }
+        }
+
+        if (!manager && !user.getEmail().equals(email)) {
+            throw new AccessDeniedException("You are not allowed to update this User.");
+        }
+
+        Unit unit = unitRepository.findById(dto.getUnitId()).orElseThrow(() ->
+                        new ResourceNotFoundException("Unit not found with id: " + dto.getUnitId())
+                );
+
+        user.setName(dto.getName());
+        user.setUnit(unit);
+        user.setPhone(dto.getPhone());
+        user.setEmail(dto.getEmail());
+
+        if (manager) {
             user.setRole(dto.getRole());
-            user.setPhone(dto.getPhone());
-            user.setEmail(dto.getEmail());
+        }
 
-            User savedUser = userRepository.save(user);
+        User savedUser = userRepository.save(user);
 
-            return UserMapper.toResponseDto(savedUser);
-
+        return UserMapper.toResponseDto(savedUser);
     }
 
     public String deleteUserById(Long id) {
+
         User user = userRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "User not found with id: " + id
-                        )
+                        new ResourceNotFoundException("User not found with id: " + id)
                 );
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        String email = authentication.getName();
+
+        boolean manager = false;
+
+        for (var a : authentication.getAuthorities()) {
+            if (a.getAuthority().equals("ROLE_MANAGER")) {
+                manager = true;
+                break;
+            }
+        }
+
+        if (!manager && !user.getEmail().equals(email)) {
+            throw new AccessDeniedException("You are not allowed to delete this User.");
+        }
+
         userRepository.delete(user);
         return "User Deleted";
     }
-
 }
