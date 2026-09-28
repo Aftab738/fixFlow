@@ -1,5 +1,6 @@
 package com.maintenance.fixFlow.config;
 
+import com.maintenance.fixFlow.security.CustomAccessDeniedHandler;
 import com.maintenance.fixFlow.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,9 +17,14 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final CustomAccessDeniedHandler customAccessDeniedHandler;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+    public SecurityConfig(
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            CustomAccessDeniedHandler customAccessDeniedHandler) {
+
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.customAccessDeniedHandler = customAccessDeniedHandler;
     }
 
     @Bean
@@ -105,6 +111,9 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/api/workUpdate/getAll")
                                 .hasRole("MANAGER")
 
+                                .requestMatchers(HttpMethod.POST, "/api/workUpdate")
+                                .hasAnyRole("MANAGER", "VENDOR")
+
                                 //Notification
                                 .requestMatchers(HttpMethod.GET, "/api/notification/getAll")
                                 .hasRole("MANAGER")
@@ -116,6 +125,9 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/api/rating/getAll")
                                 .hasRole("MANAGER")
 
+                                .requestMatchers(HttpMethod.POST, "/api/rating")
+                                .hasRole("TENANT")
+
                                 //User
                                 .requestMatchers(HttpMethod.GET, "/api/users/getAll")
                                 .hasRole("MANAGER")
@@ -125,6 +137,10 @@ public class SecurityConfig {
 
                                 // other all requests requires login
                                 .anyRequest().authenticated()
+                        )
+
+                        .exceptionHandling(exception -> exception
+                                .accessDeniedHandler(customAccessDeniedHandler)
                         )
 
                         .addFilterBefore(

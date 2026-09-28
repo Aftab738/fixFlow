@@ -255,7 +255,7 @@ public class AttachmentService {
         return AttachmentMapper.toResponseDto(savedAttachment);
     }
 
-    public void deleteAttachment(Long id) {
+    public String deleteAttachment(Long id) {
 
         Attachment attachment = attachmentRepository.findById(id).orElseThrow(() ->
                                 new ResourceNotFoundException(
@@ -330,6 +330,7 @@ public class AttachmentService {
         }
 
         attachmentRepository.delete(attachment);
+        return "Attachment deleted successfully";
     }
 
     public List<AttachmentResponseDto> getAttachmentsByMaintenanceRequestId(
