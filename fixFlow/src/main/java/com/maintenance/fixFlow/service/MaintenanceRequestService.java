@@ -285,7 +285,7 @@ public class MaintenanceRequestService {
         return MaintenanceRequestMapper.toResponseDto(maintenanceRequest);
     }
 
-    public void deleteMaintenanceRequest(Long id) {
+    public String deleteMaintenanceRequest(Long id) {
 
         MaintenanceRequest mr = maintenanceRequestRepository.findById(id)
                 .orElseThrow(() ->
@@ -324,6 +324,7 @@ public class MaintenanceRequestService {
         }
 
         maintenanceRequestRepository.delete(mr);
+        return "Maintenance request deleted successfully";
     }
 
     public List<MaintenanceRequestResponseDto> getMaintenanceRequestsByStatus(
